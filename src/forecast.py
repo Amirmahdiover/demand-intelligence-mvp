@@ -55,7 +55,7 @@ def _filter_demand_orders(orders):
 
 
 def aggregate_weekly_demand(orders, product_id=None):
-    """Aggregate order quantity into Sunday-starting weekly demand."""
+    """Aggregate order quantity into Saturday-starting weekly demand."""
     demand_orders = _filter_demand_orders(orders)
 
     if product_id is not None:
@@ -65,7 +65,7 @@ def aggregate_weekly_demand(orders, product_id=None):
         return pd.Series(dtype=float, name="quantity_kg")
 
     demand_orders = demand_orders.copy()
-    demand_orders["week_start"] = demand_orders["order_date"].dt.to_period("W-SAT").dt.start_time
+    demand_orders["week_start"] = demand_orders["order_date"].dt.to_period("W-FRI").dt.start_time
 
     weekly = demand_orders.groupby("week_start")["quantity_kg"].sum().sort_index()
     full_index = pd.date_range(
@@ -141,11 +141,11 @@ def calculate_wape(actual, forecast):
     return float(np.sum(np.abs(actual_values - forecast_values)) / total_actual)
 
 
-def _run_method(series, method, horizon):
+def _run_method(series, method, horizon, window=4):
     if method == "naive":
         return naive_forecast(series, horizon=horizon)
     if method == "moving_average":
-        return moving_average_forecast(series, window=4, horizon=horizon)
+        return moving_average_forecast(series, window=window, horizon=horizon)
     if method == "exponential_smoothing":
         return exponential_smoothing_forecast(series, horizon=horizon)
     raise ValueError(
@@ -153,7 +153,7 @@ def _run_method(series, method, horizon):
     )
 
 
-def backtest_forecast(series, method="moving_average"):
+def backtest_forecast(series, method="moving_average", window=4):
     clean = _prepare_series(series)
     if len(clean) < 3:
         raise ValueError("At least 3 weekly observations are required for backtesting.")
@@ -165,7 +165,7 @@ def backtest_forecast(series, method="moving_average"):
     if train.empty:
         raise ValueError("Not enough history to create a train/test split.")
 
-    forecast = _run_method(train, method=method, horizon=test_size)
+    forecast = _run_method(train, method=method, horizon=test_size, window=window)
     forecast.index = actual.index
 
     return {
@@ -176,6 +176,19 @@ def backtest_forecast(series, method="moving_average"):
         "mae": calculate_mae(actual, forecast),
         "wape": calculate_wape(actual, forecast),
     }
+
+
+def get_backtest_predictions(series, method="moving_average", window=4):
+    backtest = backtest_forecast(series, method=method, window=window)
+
+    return pd.DataFrame(
+        {
+            "week_start": backtest["actual"].index,
+            "actual_demand": backtest["actual"].to_numpy(),
+            "forecast_demand": backtest["forecast"].to_numpy(),
+            "method": backtest["method"],
+        }
+    )
 
 
 def forecast_all_products(orders, products, horizon=8):

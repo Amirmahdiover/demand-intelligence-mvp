@@ -1,6 +1,6 @@
 product_id,product_name,product_group,method,mae,wape,test_weeks,history_weeks,forecast_horizon_weeks
-P001,Polyester Yarn 150D,yarn,moving_average,24656.25,0.7343633655994043,8,105,8
-P002,Polyester Yarn 300D,yarn,moving_average,17425.0,0.6157243816254417,8,105,8
+P001,Polyester Yarn 150D,yarn,moving_average,24368.75,0.7258004467609829,8,105,8
+P002,Polyester Yarn 300D,yarn,moving_average,19975.0,0.7058303886925795,8,105,8
 P003,Industrial Polyester Fiber,industrial,moving_average,16525.0,0.9552023121387283,8,105,8
-P004,Carpet Polyester Yarn,carpet,moving_average,43168.75,0.598526863084922,8,105,8
-P005,High Tenacity Polyester Yarn,fiber,moving_average,15075.0,0.8198504418762746,8,104,8
+P004,Carpet Polyester Yarn,carpet,moving_average,34125.0,0.4731369150779896,8,105,8
+P005,High Tenacity Polyester Yarn,fiber,moving_average,17475.0,0.9503738953093134,8,104,8
