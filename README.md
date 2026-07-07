@@ -6,23 +6,36 @@ A practical Demand Intelligence MVP for connecting historical sales, unstructure
 
 The current version is intentionally simple for a 2-week interview preparation MVP. It does not use FastAPI, a database, authentication, Docker, LLM APIs, advanced forecasting, or a professional UI yet.
 
-## MVP Value Loop
+## Project Execution Principle
 
-Sales Orders + Sales Notes + Market Factors
--> Demand Forecast
--> Adjusted Forecast using Sales Signals
--> PET Chips Requirement
--> Shortage / Surplus Risk
--> Decision Support
+This project follows a build-first approach.
 
-## Current Status
+The priority is to create a working end-to-end MVP pipeline before deeply studying or perfecting each file.
 
-Day 1 to Day 6 are now covered at MVP level.
+For each step, only check whether it runs, creates the expected output, and can be used by the next step. If it works well enough, move forward.
 
-- Day 1-3: project structure, problem scope, schema, synthetic data, data loader utilities
-- Day 4: exploratory demand analysis with charts and planning insights
-- Day 5: weekly baseline forecast by product with simple forecast metrics
-- Day 6: rule-based sales signal extraction from unstructured sales notes
+Do not deeply inspect rule-based logic, regex, architecture, or internal implementation details unless a real bug, broken output, or clearly wrong result appears.
+
+When a problem appears, debug only the specific module and logic related to that problem.
+
+The goal is:
+
+Sales signals → adjusted forecast → PET requirement → shortage/surplus risk → decision-support output
+
+A simple working pipeline is more valuable than a perfectly understood but unfinished project.
+
+## Current MVP Status
+
+The current MVP demonstrates an end-to-end demand intelligence loop:
+
+Historical sales data
++ extracted sales signals
+-> baseline forecast
+-> adjusted forecast
+-> PET requirement
+-> shortage/surplus risk
+-> Streamlit dashboard
+-> scenario analysis
 
 ## Data Files
 
@@ -35,31 +48,51 @@ The synthetic data is stored in `data/`:
 - `market_factors.csv`: weekly USD rate, PET price index, export condition, and season data
 - `inventory.csv`: PET Chips inventory, lead time, and safety stock
 
-## Setup
+## How to Run
 
 Install the minimal Python dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-## Generate Synthetic Data
+Optional: refresh the synthetic data:
 
 ```bash
 python src/generate_synthetic_data.py
 ```
 
-This refreshes the CSV files in `data/`.
-
-## Run EDA
-
-Open and run the notebook:
+Run or refresh the MVP pipeline outputs:
 
 ```bash
-jupyter notebook notebooks/01_eda.ipynb
+python notebooks/02_forecast_baseline.py
+python src/extract_sales_signals.py --method rule_based
+python src/supply_planning.py
 ```
 
-Or run the reproducible script version:
+Expected output files:
+
+- `outputs/forecast/product_forecasts.csv`
+- `outputs/signals/extracted_sales_signals.csv`
+- `outputs/planning/material_risk.csv`
+
+Start the dashboard:
+
+```bash
+python -m streamlit run app.py
+```
+
+On Windows, `python -m streamlit run app.py` is safer than `streamlit run app.py` because the `streamlit` command may not be available on `PATH`.
+
+## Dashboard Sections
+
+- Overview: high-level dataset and risk summary
+- Forecast: baseline and adjusted forecast
+- Sales Signals: extracted structured signals from raw sales notes
+- Material Risk: PET requirement and shortage/surplus risk
+- Scenario Analysis: simple what-if analysis for demand and signal strength
+
+## Run EDA
 
 ```bash
 python notebooks/01_eda.py
@@ -67,61 +100,23 @@ python notebooks/01_eda.py
 
 This creates demand analysis charts in `outputs/charts/` and writes practical planning insights to `docs/eda_insights.md`.
 
-Day 4 EDA demonstrates:
+## Current Limitations
 
-- Monthly total demand
-- Demand by product
-- Demand by customer
-- Top customers by total quantity
-- Demand volatility by product
-- PET price index vs demand
-- USD rate vs demand
-- Export-related vs non-export demand comparison
+- Data is synthetic.
+- Forecasting is baseline/simple, not production-grade.
+- Sales signal extraction is rule-based, not LLM-based yet.
+- Scenario analysis is simplified.
+- Inventory and PET assumptions are simplified.
+- The dashboard is for MVP demonstration, not a polished enterprise UI.
 
-## Run Baseline Forecast
+## Next Possible Improvements
 
-```bash
-python notebooks/02_forecast_baseline.py
-```
-
-This runs simple weekly product-level forecasts and saves:
-
-- `outputs/forecast/product_forecasts.csv`
-- `outputs/forecast/forecast_metrics.csv`
-- `outputs/charts/baseline_forecast_actual_vs_forecast.png`
-
-Day 5 baseline forecast demonstrates:
-
-- Weekly demand aggregation
-- Naive forecast function
-- Moving average forecast function
-- Simple exponential smoothing function when `statsmodels` is installed
-- Backtest metrics using MAE and WAPE
-- Forecast output for the next 8 weeks per product
-
-## Day 6 - Sales Signal Extraction
-
-Sales notes are unstructured demand signals. This step converts raw notes into structured fields such as expected quantity, expected period, intent probability, risk factors, and detected product.
-
-Run the extractor:
-
-```bash
-python src/extract_sales_signals.py --method rule_based
-```
-
-This saves:
-
-- `outputs/signals/extracted_sales_signals.csv`
-
-The current MVP uses rule-based extraction by default. This keeps the demo reproducible without API keys or external services. The module is designed to be LLM-ready through a prompt builder and a future `extract_signal_llm` function.
-
-This matches the long-term product direction because real sales notes and sales conversations are messy and may require LLM-based extraction. For now, LLM extraction is intentionally not active to avoid API dependency in the MVP:
-
-```bash
-python src/extract_sales_signals.py --method llm
-```
-
-That command raises a clear `NotImplementedError` until an LLM provider is connected. The rule-based implementation is designed to prove the Demand Intelligence loop, not to be a production-grade NLP system.
+- Improve forecast evaluation and backtesting.
+- Add better scenario controls.
+- Replace rule-based extraction with LLM extraction.
+- Add real ERP/CRM/Excel data ingestion.
+- Improve dashboard charts and explanations.
+- Add product/customer-level drilldowns.
 
 ## Project Structure
 
@@ -135,15 +130,14 @@ demand-intelligence-mvp/
   outputs/
     charts/
     forecast/
+    planning/
     signals/
+  app.py
   src/
     data_loader.py
     extract_sales_signals.py
     forecast.py
     generate_synthetic_data.py
+    supply_planning.py
     utils.py
 ```
-
-## Limitations
-
-Synthetic data is not proof of real industrial forecast accuracy. The current forecast is a baseline planning reference, not a production forecasting system. Real company data will require cleaning, validation, business feedback, and comparison against actual planning decisions.
