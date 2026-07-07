@@ -104,6 +104,14 @@ P001,Polyester Yarn 150D,yarn,actual,2024-12-07,44900.0,,historical
 P001,Polyester Yarn 150D,yarn,actual,2024-12-14,38100.0,,historical
 P001,Polyester Yarn 150D,yarn,actual,2024-12-21,49900.0,,historical
 P001,Polyester Yarn 150D,yarn,actual,2024-12-28,9900.0,,historical
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-04,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-11,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-18,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-25,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-01,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-08,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-15,,9900.0,naive
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-22,,9900.0,naive
 P001,Polyester Yarn 150D,yarn,forecast,2025-01-04,,35700.0,moving_average
 P001,Polyester Yarn 150D,yarn,forecast,2025-01-11,,35700.0,moving_average
 P001,Polyester Yarn 150D,yarn,forecast,2025-01-18,,35700.0,moving_average
@@ -112,6 +120,14 @@ P001,Polyester Yarn 150D,yarn,forecast,2025-02-01,,35700.0,moving_average
 P001,Polyester Yarn 150D,yarn,forecast,2025-02-08,,35700.0,moving_average
 P001,Polyester Yarn 150D,yarn,forecast,2025-02-15,,35700.0,moving_average
 P001,Polyester Yarn 150D,yarn,forecast,2025-02-22,,35700.0,moving_average
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-04,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-11,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-18,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-01-25,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-01,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-08,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-15,,37747.118038612934,exponential_smoothing
+P001,Polyester Yarn 150D,yarn,forecast,2025-02-22,,37747.118038612934,exponential_smoothing
 P002,Polyester Yarn 300D,yarn,actual,2022-12-31,2800.0,,historical
 P002,Polyester Yarn 300D,yarn,actual,2023-01-07,36700.0,,historical
 P002,Polyester Yarn 300D,yarn,actual,2023-01-14,85600.0,,historical
@@ -217,6 +233,14 @@ P002,Polyester Yarn 300D,yarn,actual,2024-12-07,0.0,,historical
 P002,Polyester Yarn 300D,yarn,actual,2024-12-14,35100.0,,historical
 P002,Polyester Yarn 300D,yarn,actual,2024-12-21,4900.0,,historical
 P002,Polyester Yarn 300D,yarn,actual,2024-12-28,28900.0,,historical
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-04,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-11,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-18,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-25,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-01,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-08,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-15,,28900.0,naive
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-22,,28900.0,naive
 P002,Polyester Yarn 300D,yarn,forecast,2025-01-04,,17225.0,moving_average
 P002,Polyester Yarn 300D,yarn,forecast,2025-01-11,,17225.0,moving_average
 P002,Polyester Yarn 300D,yarn,forecast,2025-01-18,,17225.0,moving_average
@@ -225,6 +249,14 @@ P002,Polyester Yarn 300D,yarn,forecast,2025-02-01,,17225.0,moving_average
 P002,Polyester Yarn 300D,yarn,forecast,2025-02-08,,17225.0,moving_average
 P002,Polyester Yarn 300D,yarn,forecast,2025-02-15,,17225.0,moving_average
 P002,Polyester Yarn 300D,yarn,forecast,2025-02-22,,17225.0,moving_average
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-04,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-11,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-18,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-01-25,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-01,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-08,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-15,,42784.90034708637,exponential_smoothing
+P002,Polyester Yarn 300D,yarn,forecast,2025-02-22,,42784.90034708637,exponential_smoothing
 P003,Industrial Polyester Fiber,industrial,actual,2022-12-31,30200.0,,historical
 P003,Industrial Polyester Fiber,industrial,actual,2023-01-07,40800.0,,historical
 P003,Industrial Polyester Fiber,industrial,actual,2023-01-14,57400.0,,historical
@@ -330,6 +362,14 @@ P003,Industrial Polyester Fiber,industrial,actual,2024-12-07,21200.0,,historical
 P003,Industrial Polyester Fiber,industrial,actual,2024-12-14,6800.0,,historical
 P003,Industrial Polyester Fiber,industrial,actual,2024-12-21,11400.0,,historical
 P003,Industrial Polyester Fiber,industrial,actual,2024-12-28,55500.0,,historical
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-04,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-11,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-18,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-25,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-01,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-08,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-15,,55500.0,naive
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-22,,55500.0,naive
 P003,Industrial Polyester Fiber,industrial,forecast,2025-01-04,,23725.0,moving_average
 P003,Industrial Polyester Fiber,industrial,forecast,2025-01-11,,23725.0,moving_average
 P003,Industrial Polyester Fiber,industrial,forecast,2025-01-18,,23725.0,moving_average
@@ -338,6 +378,14 @@ P003,Industrial Polyester Fiber,industrial,forecast,2025-02-01,,23725.0,moving_a
 P003,Industrial Polyester Fiber,industrial,forecast,2025-02-08,,23725.0,moving_average
 P003,Industrial Polyester Fiber,industrial,forecast,2025-02-15,,23725.0,moving_average
 P003,Industrial Polyester Fiber,industrial,forecast,2025-02-22,,23725.0,moving_average
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-04,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-11,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-18,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-01-25,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-01,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-08,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-15,,24316.851612252132,exponential_smoothing
+P003,Industrial Polyester Fiber,industrial,forecast,2025-02-22,,24316.851612252132,exponential_smoothing
 P004,Carpet Polyester Yarn,carpet,actual,2022-12-31,27500.0,,historical
 P004,Carpet Polyester Yarn,carpet,actual,2023-01-07,0.0,,historical
 P004,Carpet Polyester Yarn,carpet,actual,2023-01-14,38600.0,,historical
@@ -443,6 +491,14 @@ P004,Carpet Polyester Yarn,carpet,actual,2024-12-07,73300.0,,historical
 P004,Carpet Polyester Yarn,carpet,actual,2024-12-14,46800.0,,historical
 P004,Carpet Polyester Yarn,carpet,actual,2024-12-21,22200.0,,historical
 P004,Carpet Polyester Yarn,carpet,actual,2024-12-28,47500.0,,historical
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-04,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-11,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-18,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-25,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-01,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-08,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-15,,47500.0,naive
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-22,,47500.0,naive
 P004,Carpet Polyester Yarn,carpet,forecast,2025-01-04,,47450.0,moving_average
 P004,Carpet Polyester Yarn,carpet,forecast,2025-01-11,,47450.0,moving_average
 P004,Carpet Polyester Yarn,carpet,forecast,2025-01-18,,47450.0,moving_average
@@ -451,6 +507,14 @@ P004,Carpet Polyester Yarn,carpet,forecast,2025-02-01,,47450.0,moving_average
 P004,Carpet Polyester Yarn,carpet,forecast,2025-02-08,,47450.0,moving_average
 P004,Carpet Polyester Yarn,carpet,forecast,2025-02-15,,47450.0,moving_average
 P004,Carpet Polyester Yarn,carpet,forecast,2025-02-22,,47450.0,moving_average
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-04,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-11,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-18,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-01-25,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-01,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-08,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-15,,55223.403319758814,exponential_smoothing
+P004,Carpet Polyester Yarn,carpet,forecast,2025-02-22,,55223.403319758814,exponential_smoothing
 P005,High Tenacity Polyester Yarn,fiber,actual,2023-01-07,32200.0,,historical
 P005,High Tenacity Polyester Yarn,fiber,actual,2023-01-14,18300.0,,historical
 P005,High Tenacity Polyester Yarn,fiber,actual,2023-01-21,0.0,,historical
@@ -555,6 +619,14 @@ P005,High Tenacity Polyester Yarn,fiber,actual,2024-12-07,9200.0,,historical
 P005,High Tenacity Polyester Yarn,fiber,actual,2024-12-14,0.0,,historical
 P005,High Tenacity Polyester Yarn,fiber,actual,2024-12-21,52500.0,,historical
 P005,High Tenacity Polyester Yarn,fiber,actual,2024-12-28,58000.0,,historical
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-04,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-11,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-18,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-25,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-01,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-08,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-15,,58000.0,naive
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-22,,58000.0,naive
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-04,,29925.0,moving_average
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-11,,29925.0,moving_average
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-18,,29925.0,moving_average
@@ -563,3 +635,11 @@ P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-01,,29925.0,moving_aver
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-08,,29925.0,moving_average
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-15,,29925.0,moving_average
 P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-22,,29925.0,moving_average
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-04,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-11,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-18,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-01-25,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-01,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-08,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-15,,16241.359544611914,exponential_smoothing
+P005,High Tenacity Polyester Yarn,fiber,forecast,2025-02-22,,16241.359544611914,exponential_smoothing

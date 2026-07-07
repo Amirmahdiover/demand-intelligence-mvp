@@ -12,11 +12,52 @@ except ImportError:  # statsmodels is optional for this one method.
 ROOT_DIR = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT_DIR / "outputs" / "forecast"
 DEMAND_STATUSES = {"completed", "delivered", "pending"}
+BASELINE_METHODS = ("naive", "moving_average", "exponential_smoothing")
+FORECAST_COLUMNS = [
+    "product_id",
+    "product_name",
+    "product_group",
+    "record_type",
+    "week_start",
+    "actual_quantity_kg",
+    "forecast_quantity_kg",
+    "method",
+]
+METRIC_COLUMNS = [
+    "product_id",
+    "product_name",
+    "product_group",
+    "method",
+    "mae",
+    "wape",
+    "test_weeks",
+    "history_weeks",
+    "forecast_horizon_weeks",
+]
 
 
 def _validate_horizon(horizon):
     if horizon < 1:
         raise ValueError("horizon must be at least 1.")
+
+
+def _normalize_methods(methods):
+    if isinstance(methods, str):
+        methods = (methods,)
+
+    methods = tuple(methods)
+    if not methods:
+        raise ValueError("methods must include at least one forecast method.")
+
+    invalid_methods = sorted(set(methods).difference(BASELINE_METHODS))
+    if invalid_methods:
+        valid_methods = ", ".join(BASELINE_METHODS)
+        raise ValueError(
+            f"Unsupported forecast methods: {invalid_methods}. "
+            f"Valid methods are: {valid_methods}."
+        )
+
+    return methods
 
 
 def _prepare_series(series):
@@ -148,9 +189,8 @@ def _run_method(series, method, horizon, window=4):
         return moving_average_forecast(series, window=window, horizon=horizon)
     if method == "exponential_smoothing":
         return exponential_smoothing_forecast(series, horizon=horizon)
-    raise ValueError(
-        "method must be one of: naive, moving_average, exponential_smoothing."
-    )
+    valid_methods = ", ".join(BASELINE_METHODS)
+    raise ValueError(f"method must be one of: {valid_methods}.")
 
 
 def backtest_forecast(series, method="moving_average", window=4):
@@ -191,8 +231,9 @@ def get_backtest_predictions(series, method="moving_average", window=4):
     )
 
 
-def forecast_all_products(orders, products, horizon=8):
+def forecast_all_products(orders, products, horizon=8, methods=BASELINE_METHODS):
     _validate_horizon(horizon)
+    methods = _normalize_methods(methods)
     required_product_columns = {"product_id", "product_name", "product_group"}
     missing_columns = required_product_columns.difference(products.columns)
     if missing_columns:
@@ -203,32 +244,31 @@ def forecast_all_products(orders, products, horizon=8):
 
     for product in products.sort_values("product_id").itertuples(index=False):
         weekly = aggregate_weekly_demand(orders, product_id=product.product_id)
+        product_info = {
+            "product_id": product.product_id,
+            "product_name": product.product_name,
+            "product_group": product.product_group,
+        }
 
         if weekly.empty:
-            metric_rows.append(
-                {
-                    "product_id": product.product_id,
-                    "product_name": product.product_name,
-                    "product_group": product.product_group,
-                    "method": "moving_average",
-                    "mae": np.nan,
-                    "wape": np.nan,
-                    "test_weeks": 0,
-                    "history_weeks": 0,
-                    "forecast_horizon_weeks": horizon,
-                }
-            )
+            for method in methods:
+                metric_rows.append(
+                    {
+                        **product_info,
+                        "method": method,
+                        "mae": np.nan,
+                        "wape": np.nan,
+                        "test_weeks": 0,
+                        "history_weeks": 0,
+                        "forecast_horizon_weeks": horizon,
+                    }
+                )
             continue
-
-        backtest = backtest_forecast(weekly, method="moving_average")
-        forecast = moving_average_forecast(weekly, window=4, horizon=horizon)
 
         for week_start, quantity_kg in weekly.items():
             forecast_rows.append(
                 {
-                    "product_id": product.product_id,
-                    "product_name": product.product_name,
-                    "product_group": product.product_group,
+                    **product_info,
                     "record_type": "actual",
                     "week_start": week_start,
                     "actual_quantity_kg": quantity_kg,
@@ -237,36 +277,36 @@ def forecast_all_products(orders, products, horizon=8):
                 }
             )
 
-        for week_start, quantity_kg in forecast.items():
-            forecast_rows.append(
+        for method in methods:
+            backtest = backtest_forecast(weekly, method=method)
+            forecast = _run_method(weekly, method=method, horizon=horizon)
+
+            for week_start, quantity_kg in forecast.items():
+                forecast_rows.append(
+                    {
+                        **product_info,
+                        "record_type": "forecast",
+                        "week_start": week_start,
+                        "actual_quantity_kg": np.nan,
+                        "forecast_quantity_kg": quantity_kg,
+                        "method": method,
+                    }
+                )
+
+            metric_rows.append(
                 {
-                    "product_id": product.product_id,
-                    "product_name": product.product_name,
-                    "product_group": product.product_group,
-                    "record_type": "forecast",
-                    "week_start": week_start,
-                    "actual_quantity_kg": np.nan,
-                    "forecast_quantity_kg": quantity_kg,
-                    "method": "moving_average",
+                    **product_info,
+                    "method": backtest["method"],
+                    "mae": backtest["mae"],
+                    "wape": backtest["wape"],
+                    "test_weeks": backtest["test_size"],
+                    "history_weeks": len(weekly),
+                    "forecast_horizon_weeks": horizon,
                 }
             )
 
-        metric_rows.append(
-            {
-                "product_id": product.product_id,
-                "product_name": product.product_name,
-                "product_group": product.product_group,
-                "method": backtest["method"],
-                "mae": backtest["mae"],
-                "wape": backtest["wape"],
-                "test_weeks": backtest["test_size"],
-                "history_weeks": len(weekly),
-                "forecast_horizon_weeks": horizon,
-            }
-        )
-
-    forecast_df = pd.DataFrame(forecast_rows)
-    metrics_df = pd.DataFrame(metric_rows)
+    forecast_df = pd.DataFrame(forecast_rows, columns=FORECAST_COLUMNS)
+    metrics_df = pd.DataFrame(metric_rows, columns=METRIC_COLUMNS)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     forecast_df.to_csv(OUTPUT_DIR / "product_forecasts.csv", index=False)

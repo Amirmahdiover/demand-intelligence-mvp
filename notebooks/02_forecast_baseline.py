@@ -22,9 +22,15 @@ from src.forecast import (
 
 
 CHART_DIR = ROOT_DIR / "outputs" / "charts"
+BASELINE_METHODS = ("naive", "moving_average", "exponential_smoothing")
+METHOD_LABELS = {
+    "naive": "Naive",
+    "moving_average": "Moving average",
+    "exponential_smoothing": "Exponential smoothing",
+}
 
 
-def plot_example_product(forecast_df, product_id):
+def plot_example_product(forecast_df, product_id, methods=BASELINE_METHODS):
     product_rows = forecast_df[forecast_df["product_id"] == product_id].copy()
     product_rows["week_start"] = pd.to_datetime(product_rows["week_start"])
 
@@ -39,21 +45,28 @@ def plot_example_product(forecast_df, product_id):
         marker="o",
         label="Actual demand",
     )
-    ax.plot(
-        forecast["week_start"],
-        forecast["forecast_quantity_kg"] / 1000,
-        marker="o",
-        linestyle="--",
-        label="8-week moving average forecast",
-    )
-    ax.set_title(f"Historical Demand and Next 8-Week Forecast - {product_name}")
+
+    for method in methods:
+        method_forecast = forecast[forecast["method"] == method]
+        if method_forecast.empty:
+            continue
+
+        ax.plot(
+            method_forecast["week_start"],
+            method_forecast["forecast_quantity_kg"] / 1000,
+            marker="o",
+            linestyle="--",
+            label=f"{METHOD_LABELS.get(method, method)} forecast",
+        )
+
+    ax.set_title(f"Baseline Forecast Model Comparison - {product_name}")
     ax.set_xlabel("Week")
     ax.set_ylabel("Demand (tons)")
     ax.grid(alpha=0.25)
     ax.legend()
 
     CHART_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = CHART_DIR / "baseline_forecast_actual_vs_forecast.png"
+    output_path = CHART_DIR / "baseline_forecast_model_comparison.png"
     fig.tight_layout()
     fig.savefig(output_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -92,12 +105,24 @@ def plot_backtest_product(backtest_df, product_name):
     return output_path
 
 
+def format_metrics(metrics_df):
+    metrics_view = metrics_df.copy()
+    metrics_view["mae"] = metrics_view["mae"].round(2)
+    metrics_view["wape"] = metrics_view["wape"].round(4)
+    return metrics_view
+
+
 def main():
     orders = load_orders()
     products = load_products()
 
     weekly_total = aggregate_weekly_demand(orders)
-    forecast_df, metrics_df = forecast_all_products(orders, products, horizon=8)
+    forecast_df, metrics_df = forecast_all_products(
+        orders,
+        products,
+        horizon=8,
+        methods=BASELINE_METHODS,
+    )
 
     actual_totals = (
         forecast_df[forecast_df["record_type"] == "actual"]
@@ -108,20 +133,59 @@ def main():
     example_product_id = actual_totals.index[0]
     example_product = products[products["product_id"] == example_product_id].iloc[0]
     example_weekly = aggregate_weekly_demand(orders, product_id=example_product_id)
-    backtest_df = get_backtest_predictions(example_weekly, method="moving_average", window=4)
+    backtest_df = get_backtest_predictions(
+        example_weekly,
+        method="moving_average",
+        window=4,
+    )
 
-    chart_path = plot_example_product(forecast_df, example_product_id)
+    chart_path = plot_example_product(
+        forecast_df,
+        example_product_id,
+        methods=BASELINE_METHODS,
+    )
     backtest_chart_path = plot_backtest_product(
         backtest_df,
         example_product["product_name"],
     )
 
+    metrics_view = format_metrics(metrics_df)
+    method_order = {method: index for index, method in enumerate(BASELINE_METHODS)}
+    metrics_view["method_order"] = metrics_view["method"].map(method_order)
+    metrics_by_product = metrics_view.sort_values(["product_id", "method_order"])
+    model_comparison = metrics_view.sort_values(
+        ["product_id", "wape", "mae", "method_order"]
+    )
+    best_by_product = (
+        model_comparison.dropna(subset=["wape"])
+        .groupby("product_id", as_index=False)
+        .first()
+    )
+
     print("Baseline forecast complete.")
     print(f"Weekly observations in total demand series: {len(weekly_total)}")
-    print("Metrics by product:")
-    print(metrics_df[["product_id", "product_name", "mae", "wape"]].to_string(index=False))
+    print("Metrics by product and method:")
+    print(
+        metrics_by_product[
+            ["product_id", "product_name", "method", "mae", "wape"]
+        ].to_string(index=False)
+    )
+    print("")
+    print("Model comparison by product (lower MAE/WAPE is better):")
+    print(
+        model_comparison[
+            ["product_id", "product_name", "method", "mae", "wape"]
+        ].to_string(index=False)
+    )
+    print("")
+    print("Best method per product by WAPE:")
+    print(
+        best_by_product[
+            ["product_id", "product_name", "method", "mae", "wape"]
+        ].to_string(index=False)
+    )
     print(f"Forecast files saved to: {ROOT_DIR / 'outputs' / 'forecast'}")
-    print(f"Example chart saved to: {chart_path}")
+    print(f"Model comparison chart saved to: {chart_path}")
     print(f"Backtest chart saved to: {backtest_chart_path}")
     print("")
     print("Limitations:")
