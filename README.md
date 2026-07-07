@@ -17,11 +17,12 @@ Sales Orders + Sales Notes + Market Factors
 
 ## Current Status
 
-Day 1 to Day 5 are now covered at MVP level.
+Day 1 to Day 6 are now covered at MVP level.
 
 - Day 1-3: project structure, problem scope, schema, synthetic data, data loader utilities
 - Day 4: exploratory demand analysis with charts and planning insights
 - Day 5: weekly baseline forecast by product with simple forecast metrics
+- Day 6: rule-based sales signal extraction from unstructured sales notes
 
 ## Data Files
 
@@ -98,6 +99,30 @@ Day 5 baseline forecast demonstrates:
 - Backtest metrics using MAE and WAPE
 - Forecast output for the next 8 weeks per product
 
+## Day 6 - Sales Signal Extraction
+
+Sales notes are unstructured demand signals. This step converts raw notes into structured fields such as expected quantity, expected period, intent probability, risk factors, and detected product.
+
+Run the extractor:
+
+```bash
+python src/extract_sales_signals.py --method rule_based
+```
+
+This saves:
+
+- `outputs/signals/extracted_sales_signals.csv`
+
+The current MVP uses rule-based extraction by default. This keeps the demo reproducible without API keys or external services. The module is designed to be LLM-ready through a prompt builder and a future `extract_signal_llm` function.
+
+This matches the long-term product direction because real sales notes and sales conversations are messy and may require LLM-based extraction. For now, LLM extraction is intentionally not active to avoid API dependency in the MVP:
+
+```bash
+python src/extract_sales_signals.py --method llm
+```
+
+That command raises a clear `NotImplementedError` until an LLM provider is connected. The rule-based implementation is designed to prove the Demand Intelligence loop, not to be a production-grade NLP system.
+
 ## Project Structure
 
 ```text
@@ -110,8 +135,10 @@ demand-intelligence-mvp/
   outputs/
     charts/
     forecast/
+    signals/
   src/
     data_loader.py
+    extract_sales_signals.py
     forecast.py
     generate_synthetic_data.py
     utils.py
