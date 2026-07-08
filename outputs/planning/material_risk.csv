@@ -1,6 +1,6 @@
-product_id,product_name,product_group,baseline_method,baseline_forecast_kg,sales_signal_adjustment_kg,adjusted_forecast_kg,kg_pet_per_kg_product,required_pet_kg,material_name,current_inventory_kg,safety_stock_kg,available_after_safety_kg,shortage_or_surplus_kg,shortage_kg,coverage_ratio,shortage_ratio,risk_level,priority_rank
-P001,Polyester Yarn 150D,yarn,exponential_smoothing,301976.94,60200.0,362176.94,1.05,380285.79,PET Chips,134104.0,27486.0,106618.0,-273667.79,273667.79,0.2804,0.7196,critical_shortage,4
-P002,Polyester Yarn 300D,yarn,random_forest,346785.4,134200.0,480985.4,1.07,514654.38,PET Chips,134104.0,27486.0,106618.0,-408036.38,408036.38,0.2072,0.7928,critical_shortage,3
-P003,Industrial Polyester Fiber,industrial,naive,444000.0,40200.0,484200.0,1.08,522936.0,PET Chips,134104.0,27486.0,106618.0,-416318.0,416318.0,0.2039,0.7961,critical_shortage,2
-P004,Carpet Polyester Yarn,carpet,random_forest,447669.42,173700.0,621369.42,1.04,646224.2,PET Chips,134104.0,27486.0,106618.0,-539606.2,539606.2,0.165,0.835,critical_shortage,1
-P005,High Tenacity Polyester Yarn,fiber,moving_average,239400.0,101000.0,340400.0,1.1,374440.0,PET Chips,134104.0,27486.0,106618.0,-267822.0,267822.0,0.2847,0.7153,critical_shortage,5
+product_id,product_name,product_group,baseline_method,baseline_forecast_kg,sales_signal_adjustment_kg,adjusted_forecast_kg,kg_pet_per_kg_product,required_pet_kg,material_name,current_inventory_kg,safety_stock_kg,available_after_safety_kg,shortage_or_surplus_kg,shortage_kg,coverage_ratio,shortage_ratio,risk_level,priority_rank,signal_impact_ratio,signal_impact_warning
+P001,Polyester Yarn 150D,yarn,exponential_smoothing,301976.96,58100.0,360076.96,1.05,378080.81,PET Chips,134104.0,27486.0,106618.0,-271462.81,271462.81,0.282,0.718,critical_shortage,4,0.1924,False
+P002,Polyester Yarn 300D,yarn,random_forest,346785.4,118100.0,464885.4,1.07,497427.38,PET Chips,134104.0,27486.0,106618.0,-390809.38,390809.38,0.2143,0.7857,critical_shortage,3,0.3406,False
+P003,Industrial Polyester Fiber,industrial,naive,444000.0,34950.0,478950.0,1.08,517266.0,PET Chips,134104.0,27486.0,106618.0,-410648.0,410648.0,0.2061,0.7939,critical_shortage,2,0.0787,False
+P004,Carpet Polyester Yarn,carpet,random_forest,447669.41,143950.0,591619.41,1.04,615284.19,PET Chips,134104.0,27486.0,106618.0,-508666.19,508666.19,0.1733,0.8267,critical_shortage,1,0.3216,False
+P005,High Tenacity Polyester Yarn,fiber,moving_average,239400.0,101000.0,340400.0,1.1,374440.0,PET Chips,134104.0,27486.0,106618.0,-267822.0,267822.0,0.2847,0.7153,critical_shortage,5,0.4219,True

@@ -73,6 +73,7 @@ python src/supply_planning.py
 Expected output files:
 
 - `outputs/forecast/product_forecasts.csv`
+- `outputs/forecast/period_adjusted_forecasts.csv`
 - `outputs/signals/extracted_sales_signals.csv`
 - `outputs/planning/material_risk.csv`
 
@@ -97,6 +98,10 @@ On Windows, `python -m streamlit run app.py` is safer than `streamlit run app.py
 Forecast backtesting is time-based: training data comes from earlier weeks and test data comes from later weeks. No random shuffle split is used. Lag and rolling demand features use prior demand only, and no future actual demand leakage was found.
 
 Market factor features such as `usd_rate`, `pet_price_index`, and `export_condition_index` may be aligned to prediction dates. For this MVP, these factors are treated as known, observed, or scenario/planning inputs. Current WAPE results are MVP-level and should not be presented as production-grade; they may be optimistic if future market factor values are not actually known at forecast time.
+
+Adjusted forecasts are now created at product-week level in `outputs/forecast/period_adjusted_forecasts.csv` by mapping extracted sales signals to forecast weeks using `note_date` and `expected_period`. Material risk still shows product-level totals, but those totals are aggregated from the period-level adjusted forecast output.
+
+Adjusted forecast accuracy is still not evaluated because the current synthetic actual demand ends before the forecast periods. A valid adjusted-vs-baseline accuracy evaluation requires actual demand for the same product-week forecast periods.
 
 ## Run EDA
 

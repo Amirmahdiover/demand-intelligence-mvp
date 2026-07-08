@@ -8,6 +8,9 @@ FORECAST_PATH = ROOT_DIR / "outputs" / "forecast" / "product_forecasts.csv"
 SIGNALS_PATH = ROOT_DIR / "outputs" / "signals" / "extracted_sales_signals.csv"
 PRODUCTS_PATH = ROOT_DIR / "data" / "products.csv"
 INVENTORY_PATH = ROOT_DIR / "data" / "inventory.csv"
+PERIOD_ADJUSTED_FORECAST_PATH = (
+    ROOT_DIR / "outputs" / "forecast" / "period_adjusted_forecasts.csv"
+)
 OUTPUT_DIR = ROOT_DIR / "outputs" / "planning"
 OUTPUT_PATH = OUTPUT_DIR / "material_risk.csv"
 
@@ -33,6 +36,8 @@ OUTPUT_COLUMNS = [
     "shortage_ratio",
     "risk_level",
     "priority_rank",
+    "signal_impact_ratio",
+    "signal_impact_warning",
 ]
 
 
@@ -70,6 +75,8 @@ def load_supply_planning_inputs(
         {
             "product_id",
             "expected_quantity_kg",
+            "note_date",
+            "expected_period",
             "intent_probability",
         },
         "extracted_sales_signals",
@@ -95,6 +102,277 @@ def load_supply_planning_inputs(
     )
 
     return forecast_df, signals_df, products_df, inventory_df
+
+
+def _get_forecast_week_column(forecast_df):
+    if "forecast_period" in forecast_df.columns:
+        return "forecast_period"
+    if "week_start" in forecast_df.columns:
+        return "week_start"
+    raise ValueError("product_forecasts is missing forecast_period or week_start.")
+
+
+def _prepare_forecast_rows(forecast_df):
+    forecast_rows = forecast_df.copy()
+    if "record_type" in forecast_rows.columns:
+        forecast_rows = forecast_rows[forecast_rows["record_type"] == "forecast"].copy()
+
+    forecast_week_column = _get_forecast_week_column(forecast_rows)
+    forecast_rows["forecast_week"] = pd.to_datetime(
+        forecast_rows[forecast_week_column],
+        errors="coerce",
+    )
+    forecast_rows["baseline_forecast_kg"] = pd.to_numeric(
+        forecast_rows["forecast_quantity_kg"],
+        errors="coerce",
+    ).fillna(0)
+
+    if "selected_method" not in forecast_rows.columns:
+        forecast_rows["selected_method"] = forecast_rows["method"]
+    if "selected_method_wape" not in forecast_rows.columns:
+        forecast_rows["selected_method_wape"] = pd.NA
+
+    return forecast_rows.dropna(subset=["product_id", "forecast_week"])
+
+
+def get_signal_timing_confidence(expected_period):
+    if expected_period in {"next_week", "in_2_weeks"}:
+        return "high"
+    if expected_period in {"this_month", "next_month"}:
+        return "medium"
+    return "low"
+
+
+def summarize_signal_confidence(confidence_values):
+    values = [value for value in confidence_values if pd.notna(value)]
+    if not values:
+        return "none"
+
+    counts = pd.Series(values).value_counts()
+    ordered_levels = ["high", "medium", "low"]
+    return ", ".join(
+        f"{level}:{int(counts[level])}"
+        for level in ordered_levels
+        if level in counts
+    )
+
+
+def _next_month_start(date_value):
+    return (date_value.replace(day=1) + pd.DateOffset(months=1)).normalize()
+
+
+def _target_weeks_for_signal(note_date, expected_period, forecast_weeks):
+    forecast_weeks = pd.Series(pd.to_datetime(forecast_weeks).dropna().unique())
+    forecast_weeks = forecast_weeks.sort_values().reset_index(drop=True)
+    future_weeks = forecast_weeks[forecast_weeks > note_date]
+
+    if expected_period == "next_week":
+        return list(future_weeks.head(1))
+    if expected_period == "in_2_weeks":
+        if len(future_weeks) >= 2:
+            return [future_weeks.iloc[1]]
+        return []
+    if expected_period == "this_month":
+        target_weeks = forecast_weeks[
+            (forecast_weeks > note_date)
+            & (forecast_weeks.dt.year == note_date.year)
+            & (forecast_weeks.dt.month == note_date.month)
+        ]
+        return list(target_weeks)
+    if expected_period == "next_month":
+        next_month = _next_month_start(note_date)
+        target_weeks = forecast_weeks[
+            (forecast_weeks.dt.year == next_month.year)
+            & (forecast_weeks.dt.month == next_month.month)
+        ]
+        return list(target_weeks)
+
+    return list(future_weeks.head(1))
+
+
+def map_sales_signals_to_forecast_weeks(signals_df, forecast_rows):
+    signals = signals_df.copy()
+    signals = signals[signals["product_id"].notna()].copy()
+    signals["note_date"] = pd.to_datetime(signals["note_date"], errors="coerce")
+    signals["expected_quantity_kg"] = pd.to_numeric(
+        signals["expected_quantity_kg"],
+        errors="coerce",
+    )
+    signals["intent_probability"] = pd.to_numeric(
+        signals["intent_probability"],
+        errors="coerce",
+    ).fillna(0)
+    signals["expected_period"] = signals["expected_period"].fillna("unknown")
+    signals = signals.dropna(subset=["note_date", "expected_quantity_kg"])
+
+    forecast_weeks_by_product = {
+        product_id: group["forecast_week"].sort_values().dropna().unique()
+        for product_id, group in forecast_rows.groupby("product_id")
+    }
+
+    mapped_rows = []
+    for signal in signals.itertuples(index=False):
+        forecast_weeks = forecast_weeks_by_product.get(signal.product_id)
+        if forecast_weeks is None or len(forecast_weeks) == 0:
+            continue
+
+        expected_period = str(signal.expected_period)
+        target_weeks = _target_weeks_for_signal(
+            signal.note_date,
+            expected_period,
+            forecast_weeks,
+        )
+        if not target_weeks:
+            continue
+
+        adjustment_kg = float(signal.expected_quantity_kg) * float(
+            signal.intent_probability
+        )
+        adjustment_per_week = adjustment_kg / len(target_weeks)
+        timing_confidence = get_signal_timing_confidence(expected_period)
+
+        for forecast_week in target_weeks:
+            mapped_rows.append(
+                {
+                    "product_id": signal.product_id,
+                    "forecast_week": forecast_week,
+                    "sales_signal_adjustment_kg": adjustment_per_week,
+                    "signal_count": 1,
+                    "signal_timing_confidence": timing_confidence,
+                }
+            )
+
+    return pd.DataFrame(mapped_rows)
+
+
+def build_period_adjusted_forecasts(forecast_df, signals_df):
+    forecast_rows = _prepare_forecast_rows(forecast_df)
+    baseline_columns = [
+        "product_id",
+        "product_name",
+        "forecast_week",
+        "baseline_forecast_kg",
+        "selected_method",
+        "selected_method_wape",
+    ]
+    period_forecast = forecast_rows[baseline_columns].copy()
+
+    mapped_signals = map_sales_signals_to_forecast_weeks(signals_df, forecast_rows)
+    if mapped_signals.empty:
+        signal_adjustments = pd.DataFrame(
+            columns=[
+                "product_id",
+                "forecast_week",
+                "sales_signal_adjustment_kg",
+                "signal_count",
+                "signal_timing_confidence_summary",
+            ]
+        )
+    else:
+        signal_adjustments = (
+            mapped_signals.groupby(["product_id", "forecast_week"], as_index=False)
+            .agg(
+                sales_signal_adjustment_kg=("sales_signal_adjustment_kg", "sum"),
+                signal_count=("signal_count", "sum"),
+                signal_timing_confidence_summary=(
+                    "signal_timing_confidence",
+                    summarize_signal_confidence,
+                ),
+            )
+        )
+
+    period_forecast = period_forecast.merge(
+        signal_adjustments,
+        on=["product_id", "forecast_week"],
+        how="left",
+    )
+    period_forecast["sales_signal_adjustment_kg"] = period_forecast[
+        "sales_signal_adjustment_kg"
+    ].fillna(0)
+    period_forecast["signal_count"] = period_forecast["signal_count"].fillna(0).astype(int)
+    period_forecast["signal_timing_confidence_summary"] = period_forecast[
+        "signal_timing_confidence_summary"
+    ].fillna("none")
+    period_forecast["adjusted_forecast_kg"] = (
+        period_forecast["baseline_forecast_kg"]
+        + period_forecast["sales_signal_adjustment_kg"]
+    )
+    period_forecast["signal_impact_ratio"] = period_forecast.apply(
+        lambda row: safe_ratio(
+            row["sales_signal_adjustment_kg"],
+            row["baseline_forecast_kg"],
+        ),
+        axis=1,
+    )
+    period_forecast["signal_impact_warning"] = (
+        period_forecast["signal_impact_ratio"] > 0.40
+    )
+
+    period_forecast = period_forecast.rename(
+        columns={"forecast_week": "forecast_date"}
+    )
+    quantity_columns = [
+        "baseline_forecast_kg",
+        "sales_signal_adjustment_kg",
+        "adjusted_forecast_kg",
+    ]
+    period_forecast[quantity_columns] = period_forecast[quantity_columns].round(2)
+    period_forecast["signal_impact_ratio"] = period_forecast[
+        "signal_impact_ratio"
+    ].round(4)
+
+    output_columns = [
+        "product_id",
+        "product_name",
+        "forecast_date",
+        "baseline_forecast_kg",
+        "sales_signal_adjustment_kg",
+        "adjusted_forecast_kg",
+        "selected_method",
+        "selected_method_wape",
+        "signal_count",
+        "signal_timing_confidence_summary",
+        "signal_impact_ratio",
+        "signal_impact_warning",
+    ]
+    return period_forecast[output_columns].sort_values(
+        ["product_id", "forecast_date"]
+    )
+
+
+def aggregate_period_adjusted_forecasts(period_adjusted_df):
+    period_forecast = period_adjusted_df.copy()
+    period_forecast["baseline_forecast_kg"] = pd.to_numeric(
+        period_forecast["baseline_forecast_kg"],
+        errors="coerce",
+    ).fillna(0)
+    period_forecast["sales_signal_adjustment_kg"] = pd.to_numeric(
+        period_forecast["sales_signal_adjustment_kg"],
+        errors="coerce",
+    ).fillna(0)
+    period_forecast["adjusted_forecast_kg"] = pd.to_numeric(
+        period_forecast["adjusted_forecast_kg"],
+        errors="coerce",
+    ).fillna(0)
+
+    totals = (
+        period_forecast.groupby("product_id", as_index=False)
+        .agg(
+            baseline_forecast_kg=("baseline_forecast_kg", "sum"),
+            sales_signal_adjustment_kg=("sales_signal_adjustment_kg", "sum"),
+            adjusted_forecast_kg=("adjusted_forecast_kg", "sum"),
+            baseline_method=("selected_method", "first"),
+        )
+    )
+    totals["signal_impact_ratio"] = totals.apply(
+        lambda row: safe_ratio(
+            row["sales_signal_adjustment_kg"],
+            row["baseline_forecast_kg"],
+        ),
+        axis=1,
+    )
+    totals["signal_impact_warning"] = totals["signal_impact_ratio"] > 0.40
+    return totals
 
 
 def aggregate_baseline_forecast(forecast_df, baseline_method=DEFAULT_BASELINE_METHOD):
@@ -176,9 +454,34 @@ def build_material_risk_plan(
     products_df,
     inventory_df,
     baseline_method=DEFAULT_BASELINE_METHOD,
+    period_adjusted_df=None,
 ):
-    baseline = aggregate_baseline_forecast(forecast_df, baseline_method=baseline_method)
-    adjustments = aggregate_sales_signal_adjustments(signals_df)
+    if period_adjusted_df is not None:
+        forecast_totals = aggregate_period_adjusted_forecasts(period_adjusted_df)
+    else:
+        baseline = aggregate_baseline_forecast(
+            forecast_df,
+            baseline_method=baseline_method,
+        )
+        adjustments = aggregate_sales_signal_adjustments(signals_df)
+        forecast_totals = baseline.merge(adjustments, on="product_id", how="left")
+        forecast_totals["sales_signal_adjustment_kg"] = forecast_totals[
+            "sales_signal_adjustment_kg"
+        ].fillna(0)
+        forecast_totals["adjusted_forecast_kg"] = (
+            forecast_totals["baseline_forecast_kg"]
+            + forecast_totals["sales_signal_adjustment_kg"]
+        )
+        forecast_totals["signal_impact_ratio"] = forecast_totals.apply(
+            lambda row: safe_ratio(
+                row["sales_signal_adjustment_kg"],
+                row["baseline_forecast_kg"],
+            ),
+            axis=1,
+        )
+        forecast_totals["signal_impact_warning"] = (
+            forecast_totals["signal_impact_ratio"] > 0.40
+        )
 
     inventory = inventory_df.iloc[0]
     material_name = inventory["material_name"]
@@ -186,17 +489,17 @@ def build_material_risk_plan(
     safety_stock_kg = float(inventory["safety_stock_kg"])
     available_after_safety_kg = current_inventory_kg - safety_stock_kg
 
-    planning = products_df.merge(baseline, on="product_id", how="left")
-    planning = planning.merge(adjustments, on="product_id", how="left")
+    planning = products_df.merge(forecast_totals, on="product_id", how="left")
     planning["baseline_method"] = planning["baseline_method"].fillna(baseline_method)
     planning["baseline_forecast_kg"] = planning["baseline_forecast_kg"].fillna(0)
     planning["sales_signal_adjustment_kg"] = planning[
         "sales_signal_adjustment_kg"
     ].fillna(0)
-
-    planning["adjusted_forecast_kg"] = (
+    planning["adjusted_forecast_kg"] = planning["adjusted_forecast_kg"].fillna(
         planning["baseline_forecast_kg"] + planning["sales_signal_adjustment_kg"]
     )
+    planning["signal_impact_ratio"] = planning["signal_impact_ratio"].fillna(0)
+    planning["signal_impact_warning"] = planning["signal_impact_warning"].fillna(False)
     planning["required_pet_kg"] = (
         planning["adjusted_forecast_kg"] * planning["kg_pet_per_kg_product"]
     )
@@ -243,7 +546,7 @@ def build_material_risk_plan(
         "shortage_or_surplus_kg",
         "shortage_kg",
     ]
-    ratio_columns = ["coverage_ratio", "shortage_ratio"]
+    ratio_columns = ["coverage_ratio", "shortage_ratio", "signal_impact_ratio"]
     planning[quantity_columns] = planning[quantity_columns].round(2)
     planning[ratio_columns] = planning[ratio_columns].round(4)
 
@@ -264,12 +567,17 @@ def run_supply_planning(
         products_path=products_path,
         inventory_path=inventory_path,
     )
+    period_adjusted_df = build_period_adjusted_forecasts(forecast_df, signals_df)
+    PERIOD_ADJUSTED_FORECAST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    period_adjusted_df.to_csv(PERIOD_ADJUSTED_FORECAST_PATH, index=False)
+
     material_risk_df = build_material_risk_plan(
         forecast_df,
         signals_df,
         products_df,
         inventory_df,
         baseline_method=baseline_method,
+        period_adjusted_df=period_adjusted_df,
     )
 
     output_path = Path(output_path)
@@ -294,6 +602,7 @@ def run_supply_planning(
         "Number of shortage risks: "
         f"{(material_risk_df['risk_level'] != 'ok').sum()}"
     )
+    print(f"Period adjusted forecast file: {PERIOD_ADJUSTED_FORECAST_PATH}")
     print(f"Output file: {output_path}")
 
     return material_risk_df
