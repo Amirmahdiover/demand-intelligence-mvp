@@ -36,6 +36,12 @@ OUTPUT_COLUMNS = [
     "shortage_ratio",
     "risk_level",
     "priority_rank",
+    "raw_sales_signal_adjustment_kg",
+    "controlled_sales_signal_adjustment_kg",
+    "raw_signal_impact_ratio",
+    "controlled_signal_impact_ratio",
+    "signal_adjustment_capped_flag",
+    "high_signal_impact_warning",
     "signal_impact_ratio",
     "signal_impact_warning",
 ]
@@ -143,6 +149,15 @@ def get_signal_timing_confidence(expected_period):
     return "low"
 
 
+def get_timing_confidence_weight(timing_confidence):
+    weights = {
+        "high": 1.00,
+        "medium": 0.70,
+        "low": 0.35,
+    }
+    return weights.get(timing_confidence, 0.35)
+
+
 def summarize_signal_confidence(confidence_values):
     values = [value for value in confidence_values if pd.notna(value)]
     if not values:
@@ -155,6 +170,43 @@ def summarize_signal_confidence(confidence_values):
         for level in ordered_levels
         if level in counts
     )
+
+
+def calculate_controlled_signal_adjustment(timing_weighted_adjustment_kg, baseline_kg):
+    if pd.isna(timing_weighted_adjustment_kg):
+        return 0
+
+    baseline_kg = 0 if pd.isna(baseline_kg) else float(baseline_kg)
+    timing_weighted_adjustment_kg = float(timing_weighted_adjustment_kg)
+
+    if timing_weighted_adjustment_kg >= 0:
+        max_positive_adjustment = max(baseline_kg, 0) * 0.50
+        return min(timing_weighted_adjustment_kg, max_positive_adjustment)
+
+    max_negative_adjustment = -max(baseline_kg, 0)
+    return max(timing_weighted_adjustment_kg, max_negative_adjustment)
+
+
+def build_signal_control_note(row):
+    if row["raw_sales_signal_adjustment_kg"] == 0:
+        return "no adjustment"
+
+    notes = ["raw adjustment preserved"]
+    if row["timing_weighted_signal_adjustment_kg"] != row[
+        "raw_sales_signal_adjustment_kg"
+    ]:
+        confidence_summary = str(row["signal_timing_confidence_summary"])
+        if "low:" in confidence_summary:
+            notes.append("low timing confidence reduced adjustment")
+        elif "medium:" in confidence_summary:
+            notes.append("medium timing confidence reduced adjustment")
+        else:
+            notes.append("timing confidence reduced adjustment")
+
+    if row["signal_adjustment_capped_flag"]:
+        notes.append("cap applied")
+
+    return "; ".join(notes)
 
 
 def _next_month_start(date_value):
@@ -230,13 +282,21 @@ def map_sales_signals_to_forecast_weeks(signals_df, forecast_rows):
         )
         adjustment_per_week = adjustment_kg / len(target_weeks)
         timing_confidence = get_signal_timing_confidence(expected_period)
+        timing_weight = get_timing_confidence_weight(timing_confidence)
 
         for forecast_week in target_weeks:
             mapped_rows.append(
                 {
                     "product_id": signal.product_id,
                     "forecast_week": forecast_week,
-                    "sales_signal_adjustment_kg": adjustment_per_week,
+                    "raw_sales_signal_adjustment_kg": adjustment_per_week,
+                    "timing_weighted_signal_adjustment_kg": (
+                        adjustment_per_week * timing_weight
+                    ),
+                    "weighted_abs_signal_adjustment_kg": (
+                        abs(adjustment_per_week) * timing_weight
+                    ),
+                    "abs_signal_adjustment_kg": abs(adjustment_per_week),
                     "signal_count": 1,
                     "signal_timing_confidence": timing_confidence,
                 }
@@ -263,7 +323,10 @@ def build_period_adjusted_forecasts(forecast_df, signals_df):
             columns=[
                 "product_id",
                 "forecast_week",
-                "sales_signal_adjustment_kg",
+                "raw_sales_signal_adjustment_kg",
+                "timing_weighted_signal_adjustment_kg",
+                "weighted_abs_signal_adjustment_kg",
+                "abs_signal_adjustment_kg",
                 "signal_count",
                 "signal_timing_confidence_summary",
             ]
@@ -272,7 +335,19 @@ def build_period_adjusted_forecasts(forecast_df, signals_df):
         signal_adjustments = (
             mapped_signals.groupby(["product_id", "forecast_week"], as_index=False)
             .agg(
-                sales_signal_adjustment_kg=("sales_signal_adjustment_kg", "sum"),
+                raw_sales_signal_adjustment_kg=(
+                    "raw_sales_signal_adjustment_kg",
+                    "sum",
+                ),
+                timing_weighted_signal_adjustment_kg=(
+                    "timing_weighted_signal_adjustment_kg",
+                    "sum",
+                ),
+                weighted_abs_signal_adjustment_kg=(
+                    "weighted_abs_signal_adjustment_kg",
+                    "sum",
+                ),
+                abs_signal_adjustment_kg=("abs_signal_adjustment_kg", "sum"),
                 signal_count=("signal_count", "sum"),
                 signal_timing_confidence_summary=(
                     "signal_timing_confidence",
@@ -286,26 +361,71 @@ def build_period_adjusted_forecasts(forecast_df, signals_df):
         on=["product_id", "forecast_week"],
         how="left",
     )
-    period_forecast["sales_signal_adjustment_kg"] = period_forecast[
-        "sales_signal_adjustment_kg"
+    signal_quantity_columns = [
+        "raw_sales_signal_adjustment_kg",
+        "timing_weighted_signal_adjustment_kg",
+        "weighted_abs_signal_adjustment_kg",
+        "abs_signal_adjustment_kg",
+    ]
+    period_forecast[signal_quantity_columns] = period_forecast[
+        signal_quantity_columns
     ].fillna(0)
     period_forecast["signal_count"] = period_forecast["signal_count"].fillna(0).astype(int)
     period_forecast["signal_timing_confidence_summary"] = period_forecast[
         "signal_timing_confidence_summary"
     ].fillna("none")
-    period_forecast["adjusted_forecast_kg"] = (
-        period_forecast["baseline_forecast_kg"]
-        + period_forecast["sales_signal_adjustment_kg"]
-    )
-    period_forecast["signal_impact_ratio"] = period_forecast.apply(
+    period_forecast["timing_confidence_weight"] = period_forecast.apply(
         lambda row: safe_ratio(
-            row["sales_signal_adjustment_kg"],
+            row["weighted_abs_signal_adjustment_kg"],
+            row["abs_signal_adjustment_kg"],
+        ),
+        axis=1,
+    )
+    period_forecast["raw_adjusted_forecast_kg"] = (
+        period_forecast["baseline_forecast_kg"]
+        + period_forecast["raw_sales_signal_adjustment_kg"]
+    )
+    period_forecast["max_positive_signal_adjustment_kg"] = (
+        period_forecast["baseline_forecast_kg"].clip(lower=0) * 0.50
+    )
+    period_forecast["controlled_sales_signal_adjustment_kg"] = period_forecast.apply(
+        lambda row: calculate_controlled_signal_adjustment(
+            row["timing_weighted_signal_adjustment_kg"],
             row["baseline_forecast_kg"],
         ),
         axis=1,
     )
-    period_forecast["signal_impact_warning"] = (
-        period_forecast["signal_impact_ratio"] > 0.40
+    period_forecast["adjusted_forecast_kg"] = (
+        period_forecast["baseline_forecast_kg"]
+        + period_forecast["controlled_sales_signal_adjustment_kg"]
+    )
+    period_forecast["raw_signal_impact_ratio"] = period_forecast.apply(
+        lambda row: safe_ratio(
+            row["raw_sales_signal_adjustment_kg"],
+            row["baseline_forecast_kg"],
+        ),
+        axis=1,
+    )
+    period_forecast["controlled_signal_impact_ratio"] = period_forecast.apply(
+        lambda row: safe_ratio(
+            row["controlled_sales_signal_adjustment_kg"],
+            row["baseline_forecast_kg"],
+        ),
+        axis=1,
+    )
+    period_forecast["signal_adjustment_capped_flag"] = (
+        (
+            period_forecast["controlled_sales_signal_adjustment_kg"]
+            - period_forecast["timing_weighted_signal_adjustment_kg"]
+        ).abs()
+        > 0.000001
+    )
+    period_forecast["high_signal_impact_warning"] = (
+        period_forecast["controlled_signal_impact_ratio"] > 0.40
+    )
+    period_forecast["signal_control_note"] = period_forecast.apply(
+        build_signal_control_note,
+        axis=1,
     )
 
     period_forecast = period_forecast.rename(
@@ -313,27 +433,42 @@ def build_period_adjusted_forecasts(forecast_df, signals_df):
     )
     quantity_columns = [
         "baseline_forecast_kg",
-        "sales_signal_adjustment_kg",
+        "raw_sales_signal_adjustment_kg",
+        "raw_adjusted_forecast_kg",
+        "timing_weighted_signal_adjustment_kg",
+        "max_positive_signal_adjustment_kg",
+        "controlled_sales_signal_adjustment_kg",
         "adjusted_forecast_kg",
     ]
     period_forecast[quantity_columns] = period_forecast[quantity_columns].round(2)
-    period_forecast["signal_impact_ratio"] = period_forecast[
-        "signal_impact_ratio"
-    ].round(4)
+    ratio_columns = [
+        "raw_signal_impact_ratio",
+        "timing_confidence_weight",
+        "controlled_signal_impact_ratio",
+    ]
+    period_forecast[ratio_columns] = period_forecast[ratio_columns].round(4)
 
     output_columns = [
         "product_id",
         "product_name",
         "forecast_date",
         "baseline_forecast_kg",
-        "sales_signal_adjustment_kg",
+        "raw_sales_signal_adjustment_kg",
+        "raw_signal_impact_ratio",
+        "raw_adjusted_forecast_kg",
+        "timing_confidence_weight",
+        "timing_weighted_signal_adjustment_kg",
+        "max_positive_signal_adjustment_kg",
+        "controlled_sales_signal_adjustment_kg",
+        "controlled_signal_impact_ratio",
         "adjusted_forecast_kg",
         "selected_method",
         "selected_method_wape",
         "signal_count",
         "signal_timing_confidence_summary",
-        "signal_impact_ratio",
-        "signal_impact_warning",
+        "signal_adjustment_capped_flag",
+        "high_signal_impact_warning",
+        "signal_control_note",
     ]
     return period_forecast[output_columns].sort_values(
         ["product_id", "forecast_date"]
@@ -346,8 +481,12 @@ def aggregate_period_adjusted_forecasts(period_adjusted_df):
         period_forecast["baseline_forecast_kg"],
         errors="coerce",
     ).fillna(0)
-    period_forecast["sales_signal_adjustment_kg"] = pd.to_numeric(
-        period_forecast["sales_signal_adjustment_kg"],
+    period_forecast["raw_sales_signal_adjustment_kg"] = pd.to_numeric(
+        period_forecast["raw_sales_signal_adjustment_kg"],
+        errors="coerce",
+    ).fillna(0)
+    period_forecast["controlled_sales_signal_adjustment_kg"] = pd.to_numeric(
+        period_forecast["controlled_sales_signal_adjustment_kg"],
         errors="coerce",
     ).fillna(0)
     period_forecast["adjusted_forecast_kg"] = pd.to_numeric(
@@ -359,19 +498,38 @@ def aggregate_period_adjusted_forecasts(period_adjusted_df):
         period_forecast.groupby("product_id", as_index=False)
         .agg(
             baseline_forecast_kg=("baseline_forecast_kg", "sum"),
-            sales_signal_adjustment_kg=("sales_signal_adjustment_kg", "sum"),
+            raw_sales_signal_adjustment_kg=("raw_sales_signal_adjustment_kg", "sum"),
+            controlled_sales_signal_adjustment_kg=(
+                "controlled_sales_signal_adjustment_kg",
+                "sum",
+            ),
             adjusted_forecast_kg=("adjusted_forecast_kg", "sum"),
             baseline_method=("selected_method", "first"),
+            signal_adjustment_capped_flag=("signal_adjustment_capped_flag", "max"),
         )
     )
-    totals["signal_impact_ratio"] = totals.apply(
+    totals["sales_signal_adjustment_kg"] = totals[
+        "controlled_sales_signal_adjustment_kg"
+    ]
+    totals["raw_signal_impact_ratio"] = totals.apply(
         lambda row: safe_ratio(
-            row["sales_signal_adjustment_kg"],
+            row["raw_sales_signal_adjustment_kg"],
             row["baseline_forecast_kg"],
         ),
         axis=1,
     )
-    totals["signal_impact_warning"] = totals["signal_impact_ratio"] > 0.40
+    totals["controlled_signal_impact_ratio"] = totals.apply(
+        lambda row: safe_ratio(
+            row["controlled_sales_signal_adjustment_kg"],
+            row["baseline_forecast_kg"],
+        ),
+        axis=1,
+    )
+    totals["high_signal_impact_warning"] = (
+        totals["controlled_signal_impact_ratio"] > 0.40
+    )
+    totals["signal_impact_ratio"] = totals["controlled_signal_impact_ratio"]
+    totals["signal_impact_warning"] = totals["high_signal_impact_warning"]
     return totals
 
 
@@ -472,16 +630,36 @@ def build_material_risk_plan(
             forecast_totals["baseline_forecast_kg"]
             + forecast_totals["sales_signal_adjustment_kg"]
         )
-        forecast_totals["signal_impact_ratio"] = forecast_totals.apply(
+        forecast_totals["raw_sales_signal_adjustment_kg"] = forecast_totals[
+            "sales_signal_adjustment_kg"
+        ]
+        forecast_totals["controlled_sales_signal_adjustment_kg"] = forecast_totals[
+            "sales_signal_adjustment_kg"
+        ]
+        forecast_totals["raw_signal_impact_ratio"] = forecast_totals.apply(
             lambda row: safe_ratio(
-                row["sales_signal_adjustment_kg"],
+                row["raw_sales_signal_adjustment_kg"],
                 row["baseline_forecast_kg"],
             ),
             axis=1,
         )
-        forecast_totals["signal_impact_warning"] = (
-            forecast_totals["signal_impact_ratio"] > 0.40
+        forecast_totals["controlled_signal_impact_ratio"] = forecast_totals.apply(
+            lambda row: safe_ratio(
+                row["controlled_sales_signal_adjustment_kg"],
+                row["baseline_forecast_kg"],
+            ),
+            axis=1,
         )
+        forecast_totals["signal_adjustment_capped_flag"] = False
+        forecast_totals["high_signal_impact_warning"] = (
+            forecast_totals["controlled_signal_impact_ratio"] > 0.40
+        )
+        forecast_totals["signal_impact_ratio"] = forecast_totals[
+            "controlled_signal_impact_ratio"
+        ]
+        forecast_totals["signal_impact_warning"] = forecast_totals[
+            "high_signal_impact_warning"
+        ]
 
     inventory = inventory_df.iloc[0]
     material_name = inventory["material_name"]
@@ -495,9 +673,25 @@ def build_material_risk_plan(
     planning["sales_signal_adjustment_kg"] = planning[
         "sales_signal_adjustment_kg"
     ].fillna(0)
+    planning["raw_sales_signal_adjustment_kg"] = planning[
+        "raw_sales_signal_adjustment_kg"
+    ].fillna(0)
+    planning["controlled_sales_signal_adjustment_kg"] = planning[
+        "controlled_sales_signal_adjustment_kg"
+    ].fillna(0)
     planning["adjusted_forecast_kg"] = planning["adjusted_forecast_kg"].fillna(
         planning["baseline_forecast_kg"] + planning["sales_signal_adjustment_kg"]
     )
+    planning["raw_signal_impact_ratio"] = planning["raw_signal_impact_ratio"].fillna(0)
+    planning["controlled_signal_impact_ratio"] = planning[
+        "controlled_signal_impact_ratio"
+    ].fillna(0)
+    planning["signal_adjustment_capped_flag"] = planning[
+        "signal_adjustment_capped_flag"
+    ].fillna(False)
+    planning["high_signal_impact_warning"] = planning[
+        "high_signal_impact_warning"
+    ].fillna(False)
     planning["signal_impact_ratio"] = planning["signal_impact_ratio"].fillna(0)
     planning["signal_impact_warning"] = planning["signal_impact_warning"].fillna(False)
     planning["required_pet_kg"] = (
@@ -538,6 +732,8 @@ def build_material_risk_plan(
     quantity_columns = [
         "baseline_forecast_kg",
         "sales_signal_adjustment_kg",
+        "raw_sales_signal_adjustment_kg",
+        "controlled_sales_signal_adjustment_kg",
         "adjusted_forecast_kg",
         "required_pet_kg",
         "current_inventory_kg",
@@ -546,7 +742,13 @@ def build_material_risk_plan(
         "shortage_or_surplus_kg",
         "shortage_kg",
     ]
-    ratio_columns = ["coverage_ratio", "shortage_ratio", "signal_impact_ratio"]
+    ratio_columns = [
+        "coverage_ratio",
+        "shortage_ratio",
+        "raw_signal_impact_ratio",
+        "controlled_signal_impact_ratio",
+        "signal_impact_ratio",
+    ]
     planning[quantity_columns] = planning[quantity_columns].round(2)
     planning[ratio_columns] = planning[ratio_columns].round(4)
 

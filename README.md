@@ -99,7 +99,9 @@ Forecast backtesting is time-based: training data comes from earlier weeks and t
 
 Market factor features such as `usd_rate`, `pet_price_index`, and `export_condition_index` may be aligned to prediction dates. For this MVP, these factors are treated as known, observed, or scenario/planning inputs. Current WAPE results are MVP-level and should not be presented as production-grade; they may be optimistic if future market factor values are not actually known at forecast time.
 
-Adjusted forecasts are now created at product-week level in `outputs/forecast/period_adjusted_forecasts.csv` by mapping extracted sales signals to forecast weeks using `note_date` and `expected_period`. Material risk still shows product-level totals, but those totals are aggregated from the period-level adjusted forecast output.
+Adjusted forecasts are now created at product-week level in `outputs/forecast/period_adjusted_forecasts.csv` by mapping extracted sales signals to forecast weeks using `note_date` and `expected_period`. Raw sales signal adjustments are preserved for transparency, while controlled signal adjustments are used for `adjusted_forecast_kg` and material risk.
+
+The controlled adjustment uses MVP guardrails: timing confidence weights reduce lower-confidence signal timing, and a weekly cap limits positive signal adjustment to 50% of the baseline forecast for that product-week. These controls are planning guardrails, not evidence of accuracy improvement.
 
 Adjusted forecast accuracy is still not evaluated because the current synthetic actual demand ends before the forecast periods. A valid adjusted-vs-baseline accuracy evaluation requires actual demand for the same product-week forecast periods.
 

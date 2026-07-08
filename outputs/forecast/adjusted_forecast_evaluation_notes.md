@@ -7,9 +7,11 @@ Adjusted forecast accuracy cannot be evaluated reliably with the current MVP dat
 - `outputs/forecast/period_adjusted_forecasts.csv` now stores adjusted forecasts at product-week level.
 - `baseline_forecast_kg` comes from selected forecast rows in `outputs/forecast/product_forecasts.csv`.
 - Sales signals are mapped to forecast weeks using `note_date` and `expected_period`.
-- `sales_signal_adjustment_kg` is calculated as `expected_quantity_kg * intent_probability` and aggregated at product-week level.
-- `adjusted_forecast_kg` is created as `baseline_forecast_kg + sales_signal_adjustment_kg`.
-- `outputs/planning/material_risk.csv` still shows product-level totals, but those totals are aggregated from the period-level adjusted forecast rows.
+- `raw_sales_signal_adjustment_kg` is calculated as `expected_quantity_kg * intent_probability` and aggregated at product-week level.
+- Raw adjustments are preserved for transparency in `raw_sales_signal_adjustment_kg`, `raw_signal_impact_ratio`, and `raw_adjusted_forecast_kg`.
+- Controlled adjustments apply MVP guardrails: timing confidence weights and a weekly cap of 50% of baseline forecast.
+- `adjusted_forecast_kg` is created as `baseline_forecast_kg + controlled_sales_signal_adjustment_kg`.
+- `outputs/planning/material_risk.csv` still shows product-level totals, but those totals are aggregated from the controlled period-level adjusted forecast rows.
 
 ## Why Evaluation Is Limited
 
@@ -30,9 +32,9 @@ A proper adjusted-vs-baseline evaluation would need:
 - Actual demand for those target periods after the forecast creation date.
 - Period-level baseline and adjusted forecasts so errors can be compared on matching periods. This structure now exists, but actual demand for those periods does not.
 
-## Current Signal Impact Context
+## Current Signal Control Context
 
-Current product-level signal adjustments are large enough that they should be treated carefully:
+Current product-level raw signal adjustments are large enough that they should be treated carefully:
 
 - P001: signal adjustment is about 19.2% of baseline forecast.
 - P002: signal adjustment is about 34.1% of baseline forecast.
@@ -40,7 +42,7 @@ Current product-level signal adjustments are large enough that they should be tr
 - P004: signal adjustment is about 32.2% of baseline forecast.
 - P005: signal adjustment is about 42.2% of baseline forecast.
 
-These signal impact ratios are not accuracy metrics. They only show how much the sales signal adjustment changes the selected baseline forecast.
+Controlled product-level signal impact ratios are lower after timing confidence weighting and weekly caps. These signal impact ratios are not accuracy metrics. They only show how much the sales signal adjustment changes the selected baseline forecast.
 
 ## Conclusion
 

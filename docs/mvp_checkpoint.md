@@ -41,7 +41,9 @@ Forecast Validation Notes:
 - Market factors such as usd_rate, pet_price_index, and export_condition_index are treated as known, observed, or scenario/planning inputs for this MVP.
 - Current WAPE results are MVP-level, not production-grade, and may be optimistic if future market factor values are not actually known at forecast time.
 - Adjusted forecasts are now product-week level in outputs/forecast/period_adjusted_forecasts.csv.
-- Material risk uses product-level totals aggregated from period-level adjusted forecasts.
+- Raw sales signal adjustments are preserved for transparency.
+- Controlled signal adjustments use timing confidence weights and a 50% weekly baseline cap.
+- Material risk uses product-level totals aggregated from controlled period-level adjusted forecasts.
 - Adjusted forecast accuracy is still not evaluated because actual demand is not available for the current forecast periods.
 
 Known limitations:
