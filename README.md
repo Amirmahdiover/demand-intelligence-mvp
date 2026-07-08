@@ -92,6 +92,12 @@ On Windows, `python -m streamlit run app.py` is safer than `streamlit run app.py
 - Material Risk: PET requirement and shortage/surplus risk
 - Scenario Analysis: simple what-if analysis for demand and signal strength
 
+## Forecast Validation Notes
+
+Forecast backtesting is time-based: training data comes from earlier weeks and test data comes from later weeks. No random shuffle split is used. Lag and rolling demand features use prior demand only, and no future actual demand leakage was found.
+
+Market factor features such as `usd_rate`, `pet_price_index`, and `export_condition_index` may be aligned to prediction dates. For this MVP, these factors are treated as known, observed, or scenario/planning inputs. Current WAPE results are MVP-level and should not be presented as production-grade; they may be optimistic if future market factor values are not actually known at forecast time.
+
 ## Run EDA
 
 ```bash

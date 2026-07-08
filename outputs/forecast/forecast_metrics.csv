@@ -1,16 +1,26 @@
-product_id,product_name,product_group,method,mae,wape,test_weeks,history_weeks,forecast_horizon_weeks
-P001,Polyester Yarn 150D,yarn,naive,33575.0,1.0,8,105,8
-P001,Polyester Yarn 150D,yarn,moving_average,24368.75,0.7258004467609829,8,105,8
-P001,Polyester Yarn 150D,yarn,exponential_smoothing,19102.582373345125,0.5689525651033545,8,105,8
-P002,Polyester Yarn 300D,yarn,naive,23550.0,0.8321554770318021,8,105,8
-P002,Polyester Yarn 300D,yarn,moving_average,19975.0,0.7058303886925795,8,105,8
-P002,Polyester Yarn 300D,yarn,exponential_smoothing,20989.492333727347,0.7416781743366554,8,105,8
-P003,Industrial Polyester Fiber,industrial,naive,14725.0,0.8511560693641619,8,105,8
-P003,Industrial Polyester Fiber,industrial,moving_average,16525.0,0.9552023121387283,8,105,8
-P003,Industrial Polyester Fiber,industrial,exponential_smoothing,15245.43038516972,0.8812387505878451,8,105,8
-P004,Carpet Polyester Yarn,carpet,naive,57925.0,0.8031195840554592,8,105,8
-P004,Carpet Polyester Yarn,carpet,moving_average,34125.0,0.4731369150779896,8,105,8
-P004,Carpet Polyester Yarn,carpet,exponential_smoothing,34125.0,0.4731369150779896,8,105,8
-P005,High Tenacity Polyester Yarn,fiber,naive,17812.5,0.9687287559483345,8,104,8
-P005,High Tenacity Polyester Yarn,fiber,moving_average,17475.0,0.9503738953093134,8,104,8
-P005,High Tenacity Polyester Yarn,fiber,exponential_smoothing,18653.094928361803,1.014444319693368,8,104,8
+product_id,product_name,product_group,method,mae,wape,MAE,WAPE,is_selected_method,test_weeks,history_weeks,forecast_horizon_weeks
+P001,Polyester Yarn 150D,yarn,naive,33575.0,1.0,33575.0,1.0,False,8,105,8
+P001,Polyester Yarn 150D,yarn,moving_average,24368.75,0.7258004467609829,24368.75,0.7258004467609829,False,8,105,8
+P001,Polyester Yarn 150D,yarn,exponential_smoothing,19102.582373345125,0.5689525651033545,19102.582373345125,0.5689525651033545,True,8,105,8
+P001,Polyester Yarn 150D,yarn,random_forest,21360.540277777778,0.6362037312815422,21360.540277777778,0.6362037312815422,False,8,105,8
+P001,Polyester Yarn 150D,yarn,gradient_boosting,25870.24588381788,0.7705210985500485,25870.24588381788,0.7705210985500485,False,8,105,8
+P002,Polyester Yarn 300D,yarn,naive,23550.0,0.8321554770318021,23550.0,0.8321554770318021,False,8,105,8
+P002,Polyester Yarn 300D,yarn,moving_average,19975.0,0.7058303886925795,19975.0,0.7058303886925795,False,8,105,8
+P002,Polyester Yarn 300D,yarn,exponential_smoothing,20989.492333727347,0.7416781743366554,20989.492333727347,0.7416781743366554,False,8,105,8
+P002,Polyester Yarn 300D,yarn,random_forest,19888.177480158727,0.7027624551292836,19888.177480158727,0.7027624551292836,True,8,105,8
+P002,Polyester Yarn 300D,yarn,gradient_boosting,21918.55062631226,0.7745070892689844,21918.55062631226,0.7745070892689844,False,8,105,8
+P003,Industrial Polyester Fiber,industrial,naive,14725.0,0.8511560693641619,14725.0,0.8511560693641619,True,8,105,8
+P003,Industrial Polyester Fiber,industrial,moving_average,16525.0,0.9552023121387283,16525.0,0.9552023121387283,False,8,105,8
+P003,Industrial Polyester Fiber,industrial,exponential_smoothing,15245.43038516972,0.8812387505878451,15245.43038516972,0.8812387505878451,False,8,105,8
+P003,Industrial Polyester Fiber,industrial,random_forest,17340.128557900432,1.0023195698208343,17340.128557900432,1.0023195698208343,False,8,105,8
+P003,Industrial Polyester Fiber,industrial,gradient_boosting,17041.91639678294,0.9850818726464128,17041.91639678294,0.9850818726464128,False,8,105,8
+P004,Carpet Polyester Yarn,carpet,naive,57925.0,0.8031195840554592,57925.0,0.8031195840554592,False,8,105,8
+P004,Carpet Polyester Yarn,carpet,moving_average,34125.0,0.4731369150779896,34125.0,0.4731369150779896,False,8,105,8
+P004,Carpet Polyester Yarn,carpet,exponential_smoothing,34125.0,0.4731369150779896,34125.0,0.4731369150779896,False,8,105,8
+P004,Carpet Polyester Yarn,carpet,random_forest,32756.74538690476,0.45416631385656514,32756.74538690476,0.45416631385656514,True,8,105,8
+P004,Carpet Polyester Yarn,carpet,gradient_boosting,37643.75457241977,0.5219238068966346,37643.75457241977,0.5219238068966346,False,8,105,8
+P005,High Tenacity Polyester Yarn,fiber,naive,17812.5,0.9687287559483345,17812.5,0.9687287559483345,False,8,104,8
+P005,High Tenacity Polyester Yarn,fiber,moving_average,17475.0,0.9503738953093134,17475.0,0.9503738953093134,True,8,104,8
+P005,High Tenacity Polyester Yarn,fiber,exponential_smoothing,18653.094928361803,1.014444319693368,18653.094928361803,1.014444319693368,False,8,104,8
+P005,High Tenacity Polyester Yarn,fiber,random_forest,22176.119047619046,1.2060431840989283,22176.119047619046,1.2060431840989283,False,8,104,8
+P005,High Tenacity Polyester Yarn,fiber,gradient_boosting,18038.6556811942,0.9810281811662379,18038.6556811942,0.9810281811662379,False,8,104,8

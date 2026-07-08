@@ -83,24 +83,34 @@ def show_forecast(forecast_df, material_risk_df, selected_product):
     forecast_rows = forecast_df[forecast_df["record_type"] == "forecast"].copy()
     forecast_rows = filter_by_product(forecast_rows, selected_product)
 
-    methods = sorted(forecast_rows["method"].dropna().unique())
-    default_method_index = (
-        methods.index("moving_average") if "moving_average" in methods else 0
-    )
-    selected_method = st.selectbox(
-        "Baseline forecast method",
-        methods,
-        index=default_method_index,
-    )
-
-    baseline_forecast = forecast_rows[forecast_rows["method"] == selected_method]
-    baseline_columns = [
-        "product_id",
-        "product_name",
-        "week_start",
-        "forecast_quantity_kg",
-        "method",
-    ]
+    if "selected_method" in forecast_rows.columns:
+        baseline_forecast = forecast_rows
+        baseline_columns = [
+            "product_id",
+            "product_name",
+            "week_start",
+            "forecast_quantity_kg",
+            "selected_method",
+            "selected_method_wape",
+        ]
+    else:
+        methods = sorted(forecast_rows["method"].dropna().unique())
+        default_method_index = (
+            methods.index("moving_average") if "moving_average" in methods else 0
+        )
+        selected_method = st.selectbox(
+            "Baseline forecast method",
+            methods,
+            index=default_method_index,
+        )
+        baseline_forecast = forecast_rows[forecast_rows["method"] == selected_method]
+        baseline_columns = [
+            "product_id",
+            "product_name",
+            "week_start",
+            "forecast_quantity_kg",
+            "method",
+        ]
     st.subheader("Baseline Forecast")
     st.dataframe(baseline_forecast[baseline_columns], use_container_width=True)
 
@@ -141,9 +151,20 @@ def show_forecast_evaluation(forecast_metrics_df, selected_product):
     metrics = filter_by_product(forecast_metrics_df, selected_product).copy()
     metrics["interpretation"] = metrics["wape"].apply(interpret_wape)
 
-    average_wape = metrics["wape"].mean()
-    best_row = metrics.loc[metrics["wape"].idxmin()]
-    worst_row = metrics.loc[metrics["wape"].idxmax()]
+    summary_metrics = metrics
+    if "is_selected_method" in metrics.columns:
+        selected_mask = (
+            metrics["is_selected_method"]
+            .astype(str)
+            .str.lower()
+            .isin(["true", "1"])
+        )
+        if selected_mask.any():
+            summary_metrics = metrics[selected_mask].copy()
+
+    average_wape = summary_metrics["wape"].mean()
+    best_row = summary_metrics.loc[summary_metrics["wape"].idxmin()]
+    worst_row = summary_metrics.loc[summary_metrics["wape"].idxmax()]
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Average WAPE", f"{average_wape:.3f}")
@@ -165,6 +186,8 @@ def show_forecast_evaluation(forecast_metrics_df, selected_product):
         "wape",
         "interpretation",
     ]
+    if "is_selected_method" in metrics.columns:
+        metric_columns.append("is_selected_method")
     st.dataframe(metrics[metric_columns].round(3), use_container_width=True)
 
 

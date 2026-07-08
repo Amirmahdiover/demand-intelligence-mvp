@@ -13,40 +13,42 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.data_loader import load_orders, load_products
+from src.data_loader import load_market_factors, load_orders, load_products
 from src.forecast import (
     aggregate_weekly_demand,
     forecast_all_products,
     get_backtest_predictions,
+    get_candidate_methods,
 )
 
 
 CHART_DIR = ROOT_DIR / "outputs" / "charts"
-BASELINE_METHODS = ("naive", "moving_average", "exponential_smoothing")
 METHOD_LABELS = {
     "naive": "Naive",
     "moving_average": "Moving average",
     "exponential_smoothing": "Exponential smoothing",
+    "random_forest": "Random forest",
+    "gradient_boosting": "Gradient boosting",
 }
 
 
-def plot_example_product(forecast_df, product_id, methods=BASELINE_METHODS):
+def plot_example_product(forecast_df, product_id, actual_weekly):
     product_rows = forecast_df[forecast_df["product_id"] == product_id].copy()
     product_rows["week_start"] = pd.to_datetime(product_rows["week_start"])
 
-    actual = product_rows[product_rows["record_type"] == "actual"].tail(26)
     forecast = product_rows[product_rows["record_type"] == "forecast"]
     product_name = product_rows["product_name"].iloc[0]
+    actual = actual_weekly.tail(26).reset_index()
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(
         actual["week_start"],
-        actual["actual_quantity_kg"] / 1000,
+        actual["quantity_kg"] / 1000,
         marker="o",
         label="Actual demand",
     )
 
-    for method in methods:
+    for method in sorted(forecast["method"].dropna().unique()):
         method_forecast = forecast[forecast["method"] == method]
         if method_forecast.empty:
             continue
@@ -59,7 +61,7 @@ def plot_example_product(forecast_df, product_id, methods=BASELINE_METHODS):
             label=f"{METHOD_LABELS.get(method, method)} forecast",
         )
 
-    ax.set_title(f"Baseline Forecast Model Comparison - {product_name}")
+    ax.set_title(f"Selected Forecast Method - {product_name}")
     ax.set_xlabel("Week")
     ax.set_ylabel("Demand (tons)")
     ax.grid(alpha=0.25)
@@ -73,7 +75,7 @@ def plot_example_product(forecast_df, product_id, methods=BASELINE_METHODS):
     return output_path
 
 
-def plot_backtest_product(backtest_df, product_name):
+def plot_backtest_product(backtest_df, product_name, method):
     backtest_df = backtest_df.copy()
     backtest_df["week_start"] = pd.to_datetime(backtest_df["week_start"])
 
@@ -89,9 +91,9 @@ def plot_backtest_product(backtest_df, product_name):
         backtest_df["forecast_demand"] / 1000,
         marker="o",
         linestyle="--",
-        label="Backtest moving average forecast",
+        label=f"Backtest {METHOD_LABELS.get(method, method)} forecast",
     )
-    ax.set_title(f"Backtest: Actual vs Forecast Demand - {product_name}")
+    ax.set_title(f"Backtest: Actual vs Selected Forecast - {product_name}")
     ax.set_xlabel("Week")
     ax.set_ylabel("Demand (tons)")
     ax.grid(alpha=0.25)
@@ -115,42 +117,53 @@ def format_metrics(metrics_df):
 def main():
     orders = load_orders()
     products = load_products()
+    market_factors = load_market_factors()
+    candidate_methods = get_candidate_methods()
 
     weekly_total = aggregate_weekly_demand(orders)
     forecast_df, metrics_df = forecast_all_products(
         orders,
         products,
         horizon=8,
-        methods=BASELINE_METHODS,
+        methods=candidate_methods,
+        market_factors=market_factors,
     )
 
-    actual_totals = (
-        forecast_df[forecast_df["record_type"] == "actual"]
-        .groupby("product_id")["actual_quantity_kg"]
-        .sum()
-        .sort_values(ascending=False)
+    actual_totals = pd.Series(
+        {
+            product_id: aggregate_weekly_demand(orders, product_id=product_id).sum()
+            for product_id in products["product_id"]
+        }
+    ).sort_values(ascending=False)
+    selected_methods = (
+        metrics_df[metrics_df["is_selected_method"]]
+        .set_index("product_id")
+        .sort_index()
     )
     example_product_id = actual_totals.index[0]
     example_product = products[products["product_id"] == example_product_id].iloc[0]
     example_weekly = aggregate_weekly_demand(orders, product_id=example_product_id)
+    example_method = selected_methods.loc[example_product_id, "method"]
     backtest_df = get_backtest_predictions(
         example_weekly,
-        method="moving_average",
+        method=example_method,
         window=4,
+        market_factors=market_factors,
     )
 
     chart_path = plot_example_product(
         forecast_df,
         example_product_id,
-        methods=BASELINE_METHODS,
+        example_weekly,
     )
     backtest_chart_path = plot_backtest_product(
         backtest_df,
         example_product["product_name"],
+        example_method,
     )
 
     metrics_view = format_metrics(metrics_df)
-    method_order = {method: index for index, method in enumerate(BASELINE_METHODS)}
+    method_order = {method: index for index, method in enumerate(candidate_methods)}
     metrics_view["method_order"] = metrics_view["method"].map(method_order)
     metrics_by_product = metrics_view.sort_values(["product_id", "method_order"])
     model_comparison = metrics_view.sort_values(
@@ -162,7 +175,7 @@ def main():
         .first()
     )
 
-    print("Baseline forecast complete.")
+    print("Forecast model comparison complete.")
     print(f"Weekly observations in total demand series: {len(weekly_total)}")
     print("Metrics by product and method:")
     print(
@@ -192,7 +205,7 @@ def main():
     print("- This is a baseline forecast, not a production-grade forecasting system.")
     print("- It uses synthetic historical orders, so accuracy does not prove real factory accuracy.")
     print("- It does not yet use sales notes, customer commitments, inventory constraints, or market scenarios.")
-    print("- Moving average forecasts are easy to explain but can lag when demand changes quickly.")
+    print("- ML candidates are lightweight scikit-learn models and are only selected when WAPE improves.")
 
 
 if __name__ == "__main__":

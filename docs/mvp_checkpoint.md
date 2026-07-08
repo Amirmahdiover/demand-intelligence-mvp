@@ -32,6 +32,14 @@ Scenario validation:
 Run command:
 python -m streamlit run app.py
 
+Forecast Validation Notes:
+- Time-based backtesting is used: training data comes from earlier periods and test data from later periods.
+- No random shuffle split is used.
+- Lag and rolling demand features use prior demand only.
+- No future actual demand leakage was found.
+- Market factors such as usd_rate, pet_price_index, and export_condition_index are treated as known, observed, or scenario/planning inputs for this MVP.
+- Current WAPE results are MVP-level, not production-grade, and may be optimistic if future market factor values are not actually known at forecast time.
+
 Known limitations:
 - Synthetic data
 - Simple baseline forecast

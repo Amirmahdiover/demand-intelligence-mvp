@@ -98,10 +98,13 @@ def load_supply_planning_inputs(
 
 
 def aggregate_baseline_forecast(forecast_df, baseline_method=DEFAULT_BASELINE_METHOD):
-    forecast_rows = forecast_df[
-        (forecast_df["record_type"] == "forecast")
-        & (forecast_df["method"] == baseline_method)
-    ].copy()
+    if "record_type" in forecast_df.columns:
+        forecast_rows = forecast_df[forecast_df["record_type"] == "forecast"].copy()
+    else:
+        forecast_rows = forecast_df.copy()
+
+    if "selected_method" not in forecast_rows.columns:
+        forecast_rows = forecast_rows[forecast_rows["method"] == baseline_method].copy()
 
     if forecast_rows.empty:
         raise ValueError(
@@ -114,11 +117,15 @@ def aggregate_baseline_forecast(forecast_df, baseline_method=DEFAULT_BASELINE_ME
     ).fillna(0)
 
     baseline = (
-        forecast_rows.groupby("product_id", as_index=False)["forecast_quantity_kg"]
-        .sum()
-        .rename(columns={"forecast_quantity_kg": "baseline_forecast_kg"})
+        forecast_rows.groupby("product_id", as_index=False)
+        .agg(
+            baseline_forecast_kg=("forecast_quantity_kg", "sum"),
+            baseline_method=(
+                "selected_method" if "selected_method" in forecast_rows.columns else "method",
+                "first",
+            ),
+        )
     )
-    baseline["baseline_method"] = baseline_method
     return baseline
 
 

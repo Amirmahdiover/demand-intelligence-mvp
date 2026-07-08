@@ -1,0 +1,6 @@
+product_id,product_name,selected_method,selected_method_mae,selected_method_wape,rating
+P001,Polyester Yarn 150D,exponential_smoothing,19102.582373345125,0.5689525651033545,weak
+P002,Polyester Yarn 300D,random_forest,19888.177480158727,0.7027624551292836,poor
+P003,Industrial Polyester Fiber,naive,14725.0,0.8511560693641619,poor
+P004,Carpet Polyester Yarn,random_forest,32756.74538690476,0.45416631385656514,weak
+P005,High Tenacity Polyester Yarn,moving_average,17475.0,0.9503738953093134,poor
