@@ -7,19 +7,26 @@ import streamlit as st
 ROOT_DIR = Path(__file__).resolve().parent
 ORDERS_PATH = ROOT_DIR / "data" / "orders.csv"
 FORECAST_PATH = ROOT_DIR / "outputs" / "forecast" / "product_forecasts.csv"
+FORECAST_METRICS_PATH = ROOT_DIR / "outputs" / "forecast" / "forecast_metrics.csv"
 SIGNALS_PATH = ROOT_DIR / "outputs" / "signals" / "extracted_sales_signals.csv"
 MATERIAL_RISK_PATH = ROOT_DIR / "outputs" / "planning" / "material_risk.csv"
 
 
 @st.cache_data
-def load_csv(path):
+def load_csv(path, modified_time):
     return pd.read_csv(path)
 
 
 def load_dashboard_data():
     missing_files = [
         str(path)
-        for path in [ORDERS_PATH, FORECAST_PATH, SIGNALS_PATH, MATERIAL_RISK_PATH]
+        for path in [
+            ORDERS_PATH,
+            FORECAST_PATH,
+            FORECAST_METRICS_PATH,
+            SIGNALS_PATH,
+            MATERIAL_RISK_PATH,
+        ]
         if not path.exists()
     ]
     if missing_files:
@@ -28,10 +35,17 @@ def load_dashboard_data():
         st.stop()
 
     return {
-        "orders": load_csv(ORDERS_PATH),
-        "forecast": load_csv(FORECAST_PATH),
-        "signals": load_csv(SIGNALS_PATH),
-        "material_risk": load_csv(MATERIAL_RISK_PATH),
+        "orders": load_csv(ORDERS_PATH, ORDERS_PATH.stat().st_mtime),
+        "forecast": load_csv(FORECAST_PATH, FORECAST_PATH.stat().st_mtime),
+        "forecast_metrics": load_csv(
+            FORECAST_METRICS_PATH,
+            FORECAST_METRICS_PATH.stat().st_mtime,
+        ),
+        "signals": load_csv(SIGNALS_PATH, SIGNALS_PATH.stat().st_mtime),
+        "material_risk": load_csv(
+            MATERIAL_RISK_PATH,
+            MATERIAL_RISK_PATH.stat().st_mtime,
+        ),
     }
 
 
@@ -45,9 +59,7 @@ def show_overview(orders_df, material_risk_df, signals_df):
     total_historical_demand = orders_df["quantity_kg"].sum()
     number_of_products = material_risk_df["product_id"].nunique()
     number_of_sales_signals = len(signals_df)
-    number_of_risk_alerts = (
-        material_risk_df["risk_level"] != "sufficient_inventory"
-    ).sum()
+    number_of_risk_alerts = (material_risk_df["risk_level"] != "ok").sum()
 
     st.header("Overview")
     st.write(
@@ -108,6 +120,54 @@ def show_forecast(forecast_df, material_risk_df, selected_product):
     st.dataframe(adjusted_forecast[adjusted_columns], use_container_width=True)
 
 
+def interpret_wape(wape):
+    if wape < 0.20:
+        return "Strong for MVP baseline"
+    if wape < 0.35:
+        return "Acceptable baseline"
+    if wape < 0.60:
+        return "Weak baseline"
+    return "Poor baseline, reference only"
+
+
+def show_forecast_evaluation(forecast_metrics_df, selected_product):
+    st.header("Forecast Evaluation")
+    st.write(
+        "WAPE shows forecast error relative to actual demand. Lower is better. "
+        "This currently evaluates the baseline forecast, not necessarily the "
+        "adjusted forecast with sales signals."
+    )
+
+    metrics = filter_by_product(forecast_metrics_df, selected_product).copy()
+    metrics["interpretation"] = metrics["wape"].apply(interpret_wape)
+
+    average_wape = metrics["wape"].mean()
+    best_row = metrics.loc[metrics["wape"].idxmin()]
+    worst_row = metrics.loc[metrics["wape"].idxmax()]
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Average WAPE", f"{average_wape:.3f}")
+    col2.metric(
+        "Best product by WAPE",
+        best_row["product_name"],
+        f"{best_row['wape']:.3f}",
+    )
+    col3.metric(
+        "Worst product by WAPE",
+        worst_row["product_name"],
+        f"{worst_row['wape']:.3f}",
+    )
+
+    metric_columns = [
+        "product_name",
+        "method",
+        "mae",
+        "wape",
+        "interpretation",
+    ]
+    st.dataframe(metrics[metric_columns].round(3), use_container_width=True)
+
+
 def show_sales_signals(signals_df, selected_product):
     st.header("Sales Signals")
     st.write(
@@ -134,6 +194,11 @@ def show_material_risk(material_risk_df, selected_product):
         "available inventory after safety stock. Negative shortage/surplus means "
         "shortage risk."
     )
+    st.write(
+        "Risk levels are based on shortage ratio, not just whether shortage "
+        "exists. Priority rank shows which products have the largest expected "
+        "PET shortage."
+    )
     st.caption(
         "shortage_or_surplus_kg = available_after_safety_kg - required_pet_kg"
     )
@@ -141,23 +206,64 @@ def show_material_risk(material_risk_df, selected_product):
     material_risk = filter_by_product(material_risk_df, selected_product)
     risk_columns = [
         "product_name",
-        "baseline_forecast_kg",
-        "sales_signal_adjustment_kg",
         "adjusted_forecast_kg",
         "required_pet_kg",
         "available_after_safety_kg",
-        "shortage_or_surplus_kg",
+        "shortage_kg",
+        "coverage_ratio",
+        "shortage_ratio",
         "risk_level",
+        "priority_rank",
     ]
-    st.dataframe(material_risk[risk_columns], use_container_width=True)
+    missing_risk_columns = [
+        column for column in risk_columns if column not in material_risk.columns
+    ]
+    if missing_risk_columns:
+        st.warning(
+            "material_risk.csv is missing expected risk columns: "
+            f"{', '.join(missing_risk_columns)}. "
+            "Re-run supply planning with: "
+            "venv\\Scripts\\python.exe -m src.supply_planning"
+        )
+        available_risk_columns = [
+            column for column in risk_columns if column in material_risk.columns
+        ]
+        if available_risk_columns:
+            st.dataframe(
+                material_risk[available_risk_columns],
+                use_container_width=True,
+            )
+    else:
+        st.dataframe(material_risk[risk_columns], use_container_width=True)
+
+    chart_data = material_risk.set_index("product_name")
+
+    st.subheader("Forecast Comparison")
+    st.bar_chart(chart_data[["baseline_forecast_kg", "adjusted_forecast_kg"]])
+
+    st.subheader("PET Requirement vs Availability")
+    st.bar_chart(chart_data[["required_pet_kg", "available_after_safety_kg"]])
+
+    st.subheader("Shortage / Surplus")
+    st.bar_chart(chart_data["shortage_or_surplus_kg"])
 
 
-def get_scenario_risk_level(shortage_or_surplus_kg):
-    if shortage_or_surplus_kg < -10000:
-        return "High shortage"
-    if shortage_or_surplus_kg < 0:
-        return "Shortage"
-    return "OK"
+def safe_ratio(numerator, denominator):
+    if pd.isna(denominator) or denominator <= 0:
+        return 0
+    return numerator / denominator
+
+
+def get_scenario_risk_level(shortage_kg, shortage_ratio):
+    if pd.isna(shortage_kg) or shortage_kg == 0:
+        return "ok"
+    if shortage_ratio >= 0.50:
+        return "critical_shortage"
+    if shortage_ratio >= 0.25:
+        return "high_shortage"
+    if shortage_ratio >= 0.10:
+        return "medium_shortage"
+    return "low_shortage"
 
 
 def show_scenario_analysis(material_risk_df, selected_product):
@@ -209,9 +315,23 @@ def show_scenario_analysis(material_risk_df, selected_product):
     scenario["scenario_shortage_or_surplus_kg"] = (
         scenario["available_after_safety_kg"] - scenario["scenario_required_pet_kg"]
     )
-    scenario["scenario_risk_level"] = scenario[
+    scenario["scenario_shortage_kg"] = scenario[
         "scenario_shortage_or_surplus_kg"
-    ].apply(get_scenario_risk_level)
+    ].apply(lambda value: abs(value) if value < 0 else 0)
+    scenario["scenario_shortage_ratio"] = scenario.apply(
+        lambda row: safe_ratio(
+            row["scenario_shortage_kg"],
+            row["scenario_required_pet_kg"],
+        ),
+        axis=1,
+    )
+    scenario["scenario_risk_level"] = scenario.apply(
+        lambda row: get_scenario_risk_level(
+            row["scenario_shortage_kg"],
+            row["scenario_shortage_ratio"],
+        ),
+        axis=1,
+    )
 
     scenario_columns = [
         "product_name",
@@ -234,7 +354,7 @@ def show_scenario_analysis(material_risk_df, selected_product):
     )
     col2.metric(
         "Products with shortage risk",
-        f"{(scenario['scenario_risk_level'] != 'OK').sum():,}",
+        f"{(scenario['scenario_risk_level'] != 'ok').sum():,}",
     )
     st.dataframe(scenario[scenario_columns].round(2), use_container_width=True)
 
@@ -252,6 +372,7 @@ def main():
     data = load_dashboard_data()
     orders_df = data["orders"]
     forecast_df = data["forecast"]
+    forecast_metrics_df = data["forecast_metrics"]
     signals_df = data["signals"]
     material_risk_df = data["material_risk"]
 
@@ -263,6 +384,7 @@ def main():
 
     show_overview(orders_df, material_risk_df, signals_df)
     show_forecast(forecast_df, material_risk_df, selected_product)
+    show_forecast_evaluation(forecast_metrics_df, selected_product)
     show_sales_signals(signals_df, selected_product)
     show_material_risk(material_risk_df, selected_product)
     show_scenario_analysis(material_risk_df, selected_product)

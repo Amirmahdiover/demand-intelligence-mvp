@@ -28,7 +28,11 @@ OUTPUT_COLUMNS = [
     "safety_stock_kg",
     "available_after_safety_kg",
     "shortage_or_surplus_kg",
+    "shortage_kg",
+    "coverage_ratio",
+    "shortage_ratio",
     "risk_level",
+    "priority_rank",
 ]
 
 
@@ -141,12 +145,22 @@ def aggregate_sales_signal_adjustments(signals_df):
     return adjustments
 
 
-def calculate_risk_level(shortage_or_surplus_kg, required_pet_kg):
-    if shortage_or_surplus_kg < 0:
-        return "shortage_risk"
-    if required_pet_kg > 0 and shortage_or_surplus_kg < required_pet_kg * 0.10:
-        return "low_buffer"
-    return "sufficient_inventory"
+def safe_ratio(numerator, denominator):
+    if pd.isna(denominator) or denominator <= 0:
+        return 0
+    return numerator / denominator
+
+
+def calculate_risk_level(shortage_kg, shortage_ratio):
+    if pd.isna(shortage_kg) or shortage_kg == 0:
+        return "ok"
+    if shortage_ratio >= 0.50:
+        return "critical_shortage"
+    if shortage_ratio >= 0.25:
+        return "high_shortage"
+    if shortage_ratio >= 0.10:
+        return "medium_shortage"
+    return "low_shortage"
 
 
 def build_material_risk_plan(
@@ -186,15 +200,32 @@ def build_material_risk_plan(
     planning["shortage_or_surplus_kg"] = (
         planning["available_after_safety_kg"] - planning["required_pet_kg"]
     )
-    planning["risk_level"] = planning.apply(
-        lambda row: calculate_risk_level(
-            row["shortage_or_surplus_kg"],
+    planning["shortage_kg"] = planning["shortage_or_surplus_kg"].apply(
+        lambda value: abs(value) if value < 0 else 0
+    )
+    planning["coverage_ratio"] = planning.apply(
+        lambda row: safe_ratio(
+            row["available_after_safety_kg"],
             row["required_pet_kg"],
         ),
         axis=1,
     )
+    planning["shortage_ratio"] = planning.apply(
+        lambda row: safe_ratio(row["shortage_kg"], row["required_pet_kg"]),
+        axis=1,
+    )
+    planning["risk_level"] = planning.apply(
+        lambda row: calculate_risk_level(
+            row["shortage_kg"],
+            row["shortage_ratio"],
+        ),
+        axis=1,
+    )
+    planning["priority_rank"] = (
+        planning["shortage_kg"].rank(method="dense", ascending=False).astype(int)
+    )
 
-    numeric_columns = [
+    quantity_columns = [
         "baseline_forecast_kg",
         "sales_signal_adjustment_kg",
         "adjusted_forecast_kg",
@@ -203,8 +234,11 @@ def build_material_risk_plan(
         "safety_stock_kg",
         "available_after_safety_kg",
         "shortage_or_surplus_kg",
+        "shortage_kg",
     ]
-    planning[numeric_columns] = planning[numeric_columns].round(2)
+    ratio_columns = ["coverage_ratio", "shortage_ratio"]
+    planning[quantity_columns] = planning[quantity_columns].round(2)
+    planning[ratio_columns] = planning[ratio_columns].round(4)
 
     return planning[OUTPUT_COLUMNS]
 
@@ -251,7 +285,7 @@ def run_supply_planning(
     )
     print(
         "Number of shortage risks: "
-        f"{(material_risk_df['risk_level'] == 'shortage_risk').sum()}"
+        f"{(material_risk_df['risk_level'] != 'ok').sum()}"
     )
     print(f"Output file: {output_path}")
 

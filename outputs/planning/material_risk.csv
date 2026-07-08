@@ -1,6 +1,6 @@
-product_id,product_name,product_group,baseline_method,baseline_forecast_kg,sales_signal_adjustment_kg,adjusted_forecast_kg,kg_pet_per_kg_product,required_pet_kg,material_name,current_inventory_kg,safety_stock_kg,available_after_safety_kg,shortage_or_surplus_kg,risk_level
-P001,Polyester Yarn 150D,yarn,moving_average,285600.0,60200.0,345800.0,1.05,363090.0,PET Chips,134104.0,27486.0,106618.0,-256472.0,shortage_risk
-P002,Polyester Yarn 300D,yarn,moving_average,137800.0,134200.0,272000.0,1.07,291040.0,PET Chips,134104.0,27486.0,106618.0,-184422.0,shortage_risk
-P003,Industrial Polyester Fiber,industrial,moving_average,189800.0,40200.0,230000.0,1.08,248400.0,PET Chips,134104.0,27486.0,106618.0,-141782.0,shortage_risk
-P004,Carpet Polyester Yarn,carpet,moving_average,379600.0,173700.0,553300.0,1.04,575432.0,PET Chips,134104.0,27486.0,106618.0,-468814.0,shortage_risk
-P005,High Tenacity Polyester Yarn,fiber,moving_average,239400.0,101000.0,340400.0,1.1,374440.0,PET Chips,134104.0,27486.0,106618.0,-267822.0,shortage_risk
+product_id,product_name,product_group,baseline_method,baseline_forecast_kg,sales_signal_adjustment_kg,adjusted_forecast_kg,kg_pet_per_kg_product,required_pet_kg,material_name,current_inventory_kg,safety_stock_kg,available_after_safety_kg,shortage_or_surplus_kg,shortage_kg,coverage_ratio,shortage_ratio,risk_level,priority_rank
+P001,Polyester Yarn 150D,yarn,moving_average,285600.0,60200.0,345800.0,1.05,363090.0,PET Chips,134104.0,27486.0,106618.0,-256472.0,256472.0,0.2936,0.7064,critical_shortage,3
+P002,Polyester Yarn 300D,yarn,moving_average,137800.0,134200.0,272000.0,1.07,291040.0,PET Chips,134104.0,27486.0,106618.0,-184422.0,184422.0,0.3663,0.6337,critical_shortage,4
+P003,Industrial Polyester Fiber,industrial,moving_average,189800.0,40200.0,230000.0,1.08,248400.0,PET Chips,134104.0,27486.0,106618.0,-141782.0,141782.0,0.4292,0.5708,critical_shortage,5
+P004,Carpet Polyester Yarn,carpet,moving_average,379600.0,173700.0,553300.0,1.04,575432.0,PET Chips,134104.0,27486.0,106618.0,-468814.0,468814.0,0.1853,0.8147,critical_shortage,1
+P005,High Tenacity Polyester Yarn,fiber,moving_average,239400.0,101000.0,340400.0,1.1,374440.0,PET Chips,134104.0,27486.0,106618.0,-267822.0,267822.0,0.2847,0.7153,critical_shortage,2
