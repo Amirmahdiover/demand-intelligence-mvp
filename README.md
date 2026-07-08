@@ -95,15 +95,29 @@ On Windows, `python -m streamlit run app.py` is safer than `streamlit run app.py
 
 ## Forecast Validation Notes
 
-Forecast backtesting is time-based: training data comes from earlier weeks and test data comes from later weeks. No random shuffle split is used. Lag and rolling demand features use prior demand only, and no future actual demand leakage was found.
+Baseline forecast accuracy is evaluated only through historical backtesting. Backtesting is time-based: training data comes from earlier weeks and test data comes from later weeks. No random shuffle split is used. Lag and rolling demand features use prior demand only, and no future actual demand leakage was found.
 
 Market factor features such as `usd_rate`, `pet_price_index`, and `export_condition_index` may be aligned to prediction dates. For this MVP, these factors are treated as known, observed, or scenario/planning inputs. Current WAPE results are MVP-level and should not be presented as production-grade; they may be optimistic if future market factor values are not actually known at forecast time.
 
-Adjusted forecasts are now created at product-week level in `outputs/forecast/period_adjusted_forecasts.csv` by mapping extracted sales signals to forecast weeks using `note_date` and `expected_period`. Raw sales signal adjustments are preserved for transparency, while controlled signal adjustments are used for `adjusted_forecast_kg` and material risk.
+Adjusted forecasts are decision-support scenario outputs. They are created at product-week level in `outputs/forecast/period_adjusted_forecasts.csv` by mapping extracted sales signals to forecast weeks using `note_date` and `expected_period`. Raw sales signal adjustments are preserved for transparency, while controlled signal adjustments are used for `adjusted_forecast_kg` and material risk.
 
 The controlled adjustment uses MVP guardrails: timing confidence weights reduce lower-confidence signal timing, and a weekly cap limits positive signal adjustment to 50% of the baseline forecast for that product-week. These controls are planning guardrails, not evidence of accuracy improvement.
 
 Adjusted forecast accuracy is still not evaluated because the current synthetic actual demand ends before the forecast periods. A valid adjusted-vs-baseline accuracy evaluation requires actual demand for the same product-week forecast periods.
+
+## Retrospective Adjusted Forecast Backtest
+
+A separate historical backtest compares baseline forecast vs controlled adjusted forecast only on product-weeks where actual demand exists:
+
+```bash
+python src/backtest_adjusted_forecast.py
+```
+
+The backtest uses the last 12 nonzero historical demand weeks per product, builds a 4-week moving-average baseline using only weeks before each test week, filters pre-extracted sales signals so `note_date` is before the test week, and applies the same timing-weight and cap guardrail used by supply planning.
+
+Current result: 60 product-week rows were tested. Baseline WAPE is 0.6361 and adjusted WAPE is 0.6377. Results are mixed at product level: one product improved slightly, one worsened, and the others were neutral. This does not support a claim that adjusted forecasts are more accurate yet. It shows that the retrospective evaluation framework is in place and the current rule-based signal logic can be improved later.
+
+This is separate from future adjusted forecast periods, where actual demand is unavailable and no adjusted forecast WAPE is claimed.
 
 ## Run EDA
 
@@ -112,6 +126,10 @@ python notebooks/01_eda.py
 ```
 
 This creates demand analysis charts in `outputs/charts/` and writes practical planning insights to `docs/eda_insights.md`.
+
+## Demo Script
+
+Use `docs/demo_script.md` for a short walkthrough of the MVP decision-support flow.
 
 ## Current Limitations
 
